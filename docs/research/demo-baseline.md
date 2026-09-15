@@ -14,7 +14,7 @@ This file records only facts and decisions that implementation issues may rely o
 | Public MCP transport | stdio | Smallest common local transport supported by Codex and Claude Desktop |
 | Private SketchUp transport | loopback TCP, bridge protocol v1 | Project decision; see ADR 0001 |
 | Demo OS | Windows 11 24H2 x64, build 26100 | Pinned validation target |
-| Demo SketchUp | SketchUp Desktop 2026.1.3, Windows build `26.1.256` 64-bit | Official SketchUp release notes, 2026-04-16 |
+| Demo SketchUp | SketchUp Desktop 2026 for Windows, major `26.x` (`>=26.0,<27.0`), 64-bit; smoke verified on `26.0.429` | Official SketchUp 2026 docs + real Windows smoke |
 
 Authoritative sources:
 
@@ -25,7 +25,7 @@ Authoritative sources:
 - Go SDK protocol notes: https://github.com/modelcontextprotocol/go-sdk/blob/main/docs/protocol.md
 - Go SDK package docs: https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk/mcp
 - SketchUp Ruby API: https://ruby.sketchup.com/
-- SketchUp Desktop 2026.1.3 release notes: https://help.sketchup.com/fr/release-notes/sketchup-desktop-202613
+- SketchUp Desktop 2026 release notes: https://help.sketchup.com/en/release-notes/sketchup-desktop-20260
 - SketchUp compatibility: https://help.sketchup.com/cs/sketchup-requirements-compatibility-considerations
 
 ## MCP facts implementation may rely on
@@ -126,9 +126,9 @@ The official SketchUp Ruby API release notes state that all access to the Sketch
 
 Implication:
 
-- socket accept/read/write and JSON parsing may run on a Ruby background thread **only when they do not touch SketchUp APIs**;
 - model/entity/UI access must run in a SketchUp callback on the main thread;
-- the bridge must not call `UI.start_timer` from its network thread.
+- the local session bridge uses a main-thread repeating timer with bounded nonblocking socket I/O (`accept_nonblock`, `read_nonblock`, `write_nonblock`) because that pattern was verified against the target SketchUp 26.0.429 host;
+- transport code must remain bounded per tick and must not perform model/entity work.
 
 Authoritative source:
 
@@ -138,14 +138,14 @@ Authoritative source:
 
 `UI.start_timer(seconds, repeat = false)` schedules a Ruby block after the requested delay and supports repeating timers.
 
-The bridge dispatcher pattern selected by ADR 0001 is:
+The bridge timer pattern selected by ADR 0001 is:
 
-1. create a repeating timer from the main thread during extension startup;
-2. background bridge I/O pushes pure-data work items into a thread-safe queue;
-3. the timer callback drains a bounded number of items;
-4. only the timer callback invokes SketchUp APIs.
+1. create a bounded repeating transport timer from the main thread during extension startup;
+2. the transport timer accepts/reads/writes sockets only through Ruby nonblocking socket APIs and pushes validated pure-data work items into a thread-safe queue;
+3. the existing dispatcher timer drains a bounded number of work items;
+4. only dispatcher/observer code invokes model/entity APIs.
 
-This keeps the timer creation itself on the main thread and prevents a socket thread from crossing the API boundary.
+This keeps both transport and SketchUp API execution cooperative with the host UI loop while preserving a strict API boundary.
 
 Authoritative source:
 

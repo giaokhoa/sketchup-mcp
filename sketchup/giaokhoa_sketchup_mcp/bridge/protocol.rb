@@ -14,6 +14,7 @@ module Giaokhoa
         UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i.freeze
 
         class FrameError < StandardError; end
+        class TimeoutError < FrameError; end
 
         class ValidationError < StandardError
           attr_reader :code, :request_id
@@ -35,30 +36,34 @@ module Giaokhoa
           [payload.bytesize].pack('N') + payload
         end
 
-        def write_frame(io, message)
+        def write_frame(io, message, timeout: nil)
           frame = encode_frame(message)
-          offset = 0
-          while offset < frame.bytesize
-            written = io.write(frame.byteslice(offset, frame.bytesize - offset))
-            raise IOError, 'socket write returned no bytes' unless written && written.positive?
-
-            offset += written
+          if timeout && io.respond_to?(:write_nonblock)
+            write_nonblocking(io, frame, monotonic_deadline(timeout))
+          else
+            write_blocking(io, frame)
           end
           io.flush if io.respond_to?(:flush)
           nil
         end
 
-        def read_frame(io)
-          header = read_exact(io, 4)
+        def read_frame(io, timeout: nil)
+          deadline = timeout && monotonic_deadline(timeout)
+          header = read_exact(io, 4, deadline)
           return nil if header.nil?
 
           length = header.unpack1('N')
           raise FrameError, 'frame payload length must be positive' if length.zero?
           raise FrameError, 'frame payload exceeds 1 MiB' if length > MAX_MESSAGE_BYTES
 
-          payload = read_exact(io, length)
+          payload = read_exact(io, length, deadline)
           raise FrameError, 'unexpected EOF while reading frame payload' if payload.nil?
 
+          decode_payload(payload)
+        end
+
+        def decode_payload(payload)
+          payload = payload.dup
           payload.force_encoding(Encoding::UTF_8)
           raise FrameError, 'frame payload is not valid UTF-8' unless payload.valid_encoding?
 
@@ -137,7 +142,16 @@ module Giaokhoa
           diff.zero?
         end
 
-        def read_exact(io, length)
+        def read_exact(io, length, deadline = nil)
+          if deadline && io.respond_to?(:read_nonblock)
+            read_nonblocking(io, length, deadline)
+          else
+            read_blocking(io, length)
+          end
+        end
+        private_class_method :read_exact
+
+        def read_blocking(io, length)
           buffer = +''
           buffer.force_encoding(Encoding::BINARY)
           while buffer.bytesize < length
@@ -150,7 +164,85 @@ module Giaokhoa
           end
           buffer
         end
-        private_class_method :read_exact
+        private_class_method :read_blocking
+
+        def read_nonblocking(io, length, deadline)
+          buffer = +''
+          buffer.force_encoding(Encoding::BINARY)
+          while buffer.bytesize < length
+            chunk = io.read_nonblock(length - buffer.bytesize, exception: false)
+            case chunk
+            when :wait_readable
+              wait_for_io(io, :read, deadline)
+            when nil
+              return nil if buffer.empty?
+
+              raise FrameError, 'unexpected EOF while reading frame'
+            when String
+              raise FrameError, 'zero-length read while reading frame' if chunk.empty?
+
+              buffer << chunk
+            else
+              raise FrameError, 'unexpected nonblocking read result'
+            end
+          end
+          buffer
+        end
+        private_class_method :read_nonblocking
+
+        def write_blocking(io, frame)
+          offset = 0
+          while offset < frame.bytesize
+            written = io.write(frame.byteslice(offset, frame.bytesize - offset))
+            raise IOError, 'socket write returned no bytes' unless written && written.positive?
+
+            offset += written
+          end
+        end
+        private_class_method :write_blocking
+
+        def write_nonblocking(io, frame, deadline)
+          offset = 0
+          while offset < frame.bytesize
+            written = io.write_nonblock(
+              frame.byteslice(offset, frame.bytesize - offset),
+              exception: false
+            )
+            case written
+            when :wait_writable
+              wait_for_io(io, :write, deadline)
+            when Integer
+              raise IOError, 'socket write returned no bytes' unless written.positive?
+
+              offset += written
+            else
+              raise FrameError, 'unexpected nonblocking write result'
+            end
+          end
+        end
+        private_class_method :write_nonblocking
+
+        def monotonic_deadline(timeout)
+          timeout = Float(timeout)
+          raise ArgumentError, 'timeout must be positive' unless timeout.positive?
+
+          Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+        end
+        private_class_method :monotonic_deadline
+
+        def wait_for_io(io, direction, deadline)
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          raise TimeoutError, "#{direction} deadline exceeded" unless remaining.positive?
+
+          ready =
+            if direction == :read
+              IO.select([io], nil, nil, remaining)
+            else
+              IO.select(nil, [io], nil, remaining)
+            end
+          raise TimeoutError, "#{direction} deadline exceeded" unless ready
+        end
+        private_class_method :wait_for_io
 
         def exact_keys!(message, expected, request_id = nil)
           actual = message.keys.sort

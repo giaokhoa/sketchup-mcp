@@ -47,12 +47,12 @@ Internal operation names must describe SketchUp-domain work and must not mirror 
 
 SketchUp Ruby API access is main-thread-only.
 
-The Ruby extension therefore has two sides:
+The Ruby extension therefore has two bounded repeating timers, both created from the SketchUp main thread during extension startup:
 
-1. A background Ruby I/O thread owns the loopback socket, parses/validates framed JSON that does not touch the SketchUp API, and places work onto a thread-safe queue.
-2. A repeating `UI.start_timer`, created from the SketchUp main thread during extension startup, drains a bounded number of queued requests. Only this dispatcher and code it calls may access `Sketchup::*`, `UI`, models, or entities.
+1. A transport timer owns the loopback sockets and performs only nonblocking accept/read/write plus framing/authentication. It places validated pure-data work onto a queue and never performs model/entity work.
+2. The existing dispatcher timer drains a bounded number of queued requests. Only this dispatcher and code it calls may access model/entity APIs.
 
-The I/O thread must never call `UI.start_timer` or any other SketchUp API itself. Results are placed onto a response queue for the I/O thread to serialize and write.
+Completed command responses are queued back to the connection and flushed nonblocking by a later transport tick. The transport work per tick is bounded so socket traffic cannot monopolize the SketchUp UI thread.
 
 Observer callbacks also run as SketchUp callbacks. They may update bridge bookkeeping such as an integer revision and cache invalidation flags, but must not edit the model.
 
@@ -297,12 +297,12 @@ Explicit non-goals: cloud service, OAuth, remote MCP, ChatGPT/Claude Desktop SDK
 
 ### 12. First demo target
 
-The first supported validation target is pinned to:
+The first supported validation target is:
 
-- Windows 11 24H2 x64, OS build 26100;
-- SketchUp Desktop 2026.1.3 for Windows, build 26.1.256, 64-bit.
+- Windows 11 x64;
+- SketchUp Desktop 2026 for Windows, major version `26.x` (`>=26.0,<27.0`), 64-bit.
 
-This is a test target, not a promise that other Windows 11 / SketchUp 2026 maintenance builds are incompatible. Support is widened only after validation.
+Issue #5 smoke validation uses SketchUp `26.0.429`. That build is the first verified build, not a minimum-version requirement. Other `26.x` maintenance releases are within the intended compatibility line; a future `27.x` release requires separate validation before being claimed as supported.
 
 ## Session information message
 
@@ -326,7 +326,7 @@ The response payload is:
 {
   "session_id": "<uuid>",
   "pid": 12345,
-  "sketchup_version": "26.1.256",
+  "sketchup_version": "26.0.429",
   "model": {
     "guid": "<guid>",
     "title": "Example",
