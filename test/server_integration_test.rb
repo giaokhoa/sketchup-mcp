@@ -85,6 +85,57 @@ class ServerIntegrationTest < Minitest::Test
     end
   end
 
+  def test_duplicate_id_is_rejected_before_session_mismatch
+    Dir.mktmpdir do |local_app_data|
+      session_id = SecureRandom.uuid
+      token = SecureRandom.urlsafe_base64(32, false)
+      discovery = Bridge::Discovery.new(
+        session_id: session_id,
+        token: token,
+        local_app_data: local_app_data
+      )
+      server = Bridge::Server.new(session_id: session_id, token: token, discovery: discovery)
+      dispatcher = Dispatcher.new(
+        request_queue: server.request_queue,
+        command_registry: PingRegistry.new,
+        ui: Object.new
+      )
+      port = server.start
+      socket = TCPSocket.new('127.0.0.1', port)
+
+      write(socket, 'type' => 'hello', 'protocol_version' => 1, 'client' => 'test', 'client_nonce' => SecureRandom.uuid)
+      read(socket)
+      write(socket, 'type' => 'authenticate', 'protocol_version' => 1, 'token' => token)
+      read(socket)
+
+      request_id = SecureRandom.uuid
+      request = {
+        'type' => 'request',
+        'protocol_version' => 1,
+        'id' => request_id,
+        'session_id' => session_id,
+        'operation' => 'system.ping',
+        'timeout_ms' => 5_000,
+        'payload' => {}
+      }
+      write(socket, request)
+      write(socket, request.merge('session_id' => SecureRandom.uuid))
+
+      duplicate = read(socket)
+      refute duplicate.fetch('ok')
+      assert_equal 'INVALID_REQUEST', duplicate.fetch('error').fetch('code')
+      assert_equal 'duplicate request id', duplicate.fetch('error').fetch('message')
+
+      assert_equal 1, dispatcher.drain_once
+      original = read(socket)
+      assert original.fetch('ok')
+      assert_equal request_id, original.fetch('id')
+    ensure
+      socket&.close unless socket&.closed?
+      server&.stop
+    end
+  end
+
   private
 
   def write(socket, message)

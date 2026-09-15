@@ -9,7 +9,7 @@ Scope: issue #4 only.
 - `UI.start_timer(seconds, repeat)` remains the supported timer primitive. The bridge creates one repeating timer from extension startup and drains a bounded number of queued requests per tick. `UI.stop_timer(id)` is used during shutdown.
 - An RBZ must contain exactly a root `.rb` registration file and a same-named support directory. The root file only registers `SketchupExtension`; implementation lives under the support directory and uses `Sketchup.require`.
 - Extension Warehouse requirements prohibit `eval`, monkey-patching SketchUp API modules/classes, self-installing update logic, and silent/destructive saves. This bridge does none of those.
-- SketchUp documents TestUp as its Minitest wrapper for tests that need to execute inside SketchUp. Pure protocol/dispatcher tests remain ordinary Minitest outside SketchUp; one TestUp smoke test covers timer/main-thread behavior.
+- SketchUp documents TestUp as its Minitest wrapper for tests that need to execute inside SketchUp. Pure protocol/dispatcher tests remain ordinary Minitest outside SketchUp; one TestUp smoke test covers the main-thread dispatcher path inside SketchUp.
 
 Authoritative sources:
 

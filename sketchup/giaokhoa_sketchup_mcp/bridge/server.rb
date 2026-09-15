@@ -77,7 +77,10 @@ module Giaokhoa
         def accept_loop(listener)
           loop do
             socket = listener.accept
-            break unless running?
+            unless running?
+              close_quietly(socket)
+              break
+            end
 
             configure_socket(socket)
             register_client(socket)
@@ -219,18 +222,6 @@ module Giaokhoa
             request = Protocol.validate_request(message)
             request_id = request.fetch('id')
 
-            unless request['session_id'] == @session_id
-              enqueue_response(
-                Protocol.error_response(
-                  request_id,
-                  'SESSION_NOT_FOUND',
-                  'request session does not match this bridge instance'
-                ),
-                release: false
-              )
-              return
-            end
-
             reservation = reserve_request_id(request_id)
             case reservation
             when :duplicate
@@ -247,6 +238,18 @@ module Giaokhoa
                   'too many outstanding requests'
                 ),
                 release: false
+              )
+              return
+            end
+
+            unless request['session_id'] == @session_id
+              enqueue_response(
+                Protocol.error_response(
+                  request_id,
+                  'SESSION_NOT_FOUND',
+                  'request session does not match this bridge instance'
+                ),
+                release: true
               )
               return
             end
