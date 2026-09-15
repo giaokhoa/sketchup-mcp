@@ -2,6 +2,15 @@
 
 module Giaokhoa
   module SketchupMcp
+    # Tracks a monotonic revision inside one SketchUp Model#guid identity epoch.
+    #
+    # Revision semantics:
+    # - attaching a different active Model starts revision 0;
+    # - a changed Model#guid (including SketchUp's documented GUID rotation after
+    #   modifying and saving a model) starts a new identity epoch at revision 0;
+    # - non-empty transaction commit, undo and redo increment revision by one;
+    # - empty transactions do not increment revision;
+    # - observers only update this bookkeeping and never mutate the model.
     class ModelState
       class Observer < Sketchup::ModelObserver
         def initialize(owner)
@@ -30,37 +39,44 @@ module Giaokhoa
       end
 
       def track(model)
-        guid = model.guid
-        return if @model.equal?(model) && @guid == guid
+        if @model.equal?(model)
+          rebase_guid(model)
+          return nil
+        end
 
         detach
         @model = model
-        @guid = guid
+        @guid = model.guid
         @revision = 0
         @model.add_observer(@observer)
         nil
       end
 
-      def snapshot
+      def capture
         model = Sketchup.active_model
-        track(model) unless @model.equal?(model) && @guid == model.guid
-        {
-          guid: @guid,
-          title: model.title,
-          revision: @revision
-        }
+        track(model)
+        rebase_guid(model)
+        [
+          model,
+          {
+            guid: @guid,
+            title: model.title.to_s,
+            path: model.path.to_s,
+            revision: @revision
+          }
+        ]
+      end
+
+      def snapshot
+        capture.last
       end
 
       def transaction_changed(model)
-        return unless @model.equal?(model)
+        return nil unless @model.equal?(model)
 
-        current_guid = model.guid
-        if current_guid != @guid
-          @guid = current_guid
-          @revision = 0
-        else
-          @revision += 1
-        end
+        return nil if rebase_guid(model)
+
+        @revision += 1
         nil
       end
 
@@ -69,6 +85,15 @@ module Giaokhoa
       end
 
       private
+
+      def rebase_guid(model)
+        current_guid = model.guid
+        return false if current_guid == @guid
+
+        @guid = current_guid
+        @revision = 0
+        true
+      end
 
       def detach
         return unless @model
