@@ -62,3 +62,17 @@ read-only and closed-world.
 
 Domain failures are returned as typed structured output with `isError: true`.
 Transport/internal failures remain ordinary MCP tool failures.
+
+## Verified SketchUp 2026 smoke
+
+Verified on 2026-09-15 with SketchUp Desktop 2026 build 26.0.429 on Windows.
+The extension was loaded from the normal Plugins directory and SketchUp was launched normally into its default Untitled model; no Ruby console or startup test script was used.
+
+- MCP Inspector over stdio discovered `model.summary`, `selection.get`, and `entity.inspect` with typed input/output schemas and read-only annotations.
+- `model.summary` returned the live model identity, revision 0, units, edit transform, and bounded top-level counts.
+- Selecting the default component returned a `ComponentInstance` through `selection.get` with a persistent-id-based `EntityRef`; no `entityID` was exposed.
+- Deleting the selected component, undoing, redoing, and undoing again advanced revision deterministically from 0 to 1, 2, 3, and 4 while SketchUp remained responsive.
+- The restored component retained its persistent ID after undo/redo.
+- Calling `entity.inspect` with the original revision-0 reference at revision 4 resolved the entity, returned current revision 4, and set `revision_mismatch: true`.
+
+Model-replacement invalidation is covered by the automated registry/model-state regression test because creating/replacing models during this smoke is not necessary to validate the read surface.

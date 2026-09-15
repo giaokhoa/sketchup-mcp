@@ -175,7 +175,7 @@ class ModelContextTest < Minitest::Test
     assert_equal 0, snapshot.fetch(:revision)
   end
 
-  def test_model_replacement_rebases_revision
+  def test_model_replacement_rebases_revision_and_invalidates_old_reference
     @model.observer.onTransactionCommit(@model)
     replacement = FakeModel.new(guid: 'guid-c')
     Sketchup.active_model = replacement
@@ -183,6 +183,18 @@ class ModelContextTest < Minitest::Test
     snapshot = @state.snapshot
     assert_equal 'guid-c', snapshot.fetch(:guid)
     assert_equal 0, snapshot.fetch(:revision)
+
+    result = @registry.call(
+      'entity.inspect',
+      'session_id' => SESSION_ID,
+      'model_guid' => 'guid-a',
+      'persistent_id' => 42,
+      'revision' => 1
+    )
+
+    refute result.fetch(:ok)
+    assert_equal 'MODEL_CHANGED', result.fetch(:error).fetch('code')
+    assert_equal 'guid-c', result.fetch(:error).fetch('details').fetch('current_model_guid')
   end
 
   def test_selection_is_bounded_and_returns_durable_refs
