@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Run this directory with TestUp inside SketchUp 2026.1.3 after loading the
+# Run this directory with TestUp inside a supported SketchUp 2026 26.x build after loading the
 # extension. TestUp runs tests in SketchUp, so drain_once exercises the same
 # main-thread dispatcher path used by the repeating UI.start_timer callback.
 

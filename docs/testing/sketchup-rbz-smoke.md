@@ -1,6 +1,6 @@
 # SketchUp RBZ manual smoke test
 
-Target: Windows 11 24H2 x64 + SketchUp Desktop 2026.1.3 (26.1.256), as pinned by ADR 0001.
+Target compatibility line: Windows 11 x64 + SketchUp Desktop 2026 `26.x` (`>=26.0,<27.0`). The local session bridge was smoke-tested on SketchUp 26.0.429.
 
 1. Build twice and verify identical hashes:
    - `python scripts/package_rbz.py --output dist/first.rbz`
