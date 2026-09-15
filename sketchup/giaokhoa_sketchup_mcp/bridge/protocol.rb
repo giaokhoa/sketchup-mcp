@@ -59,6 +59,11 @@ module Giaokhoa
           payload = read_exact(io, length, deadline)
           raise FrameError, 'unexpected EOF while reading frame payload' if payload.nil?
 
+          decode_payload(payload)
+        end
+
+        def decode_payload(payload)
+          payload = payload.dup
           payload.force_encoding(Encoding::UTF_8)
           raise FrameError, 'frame payload is not valid UTF-8' unless payload.valid_encoding?
 
