@@ -10,6 +10,9 @@ module Giaokhoa
       class Server
         LOOPBACK = '127.0.0.1'
         REQUEST_QUEUE_CAPACITY = 128
+        HANDSHAKE_TIMEOUT_SECONDS = 5.0
+        IDLE_READ_TIMEOUT_SECONDS = 120.0
+        WRITE_TIMEOUT_SECONDS = 5.0
         STOP_WRITER = Object.new.freeze
 
         attr_reader :request_queue
@@ -167,7 +170,7 @@ module Giaokhoa
           private
 
           def handshake
-            hello = Protocol.read_frame(@socket)
+            hello = Protocol.read_frame(@socket, timeout: HANDSHAKE_TIMEOUT_SECONDS)
             return false unless hello
 
             Protocol.validate_hello(hello)
@@ -179,10 +182,11 @@ module Giaokhoa
                 'session_id' => @session_id,
                 'server_nonce' => SecureRandom.uuid,
                 'max_message_bytes' => Protocol::MAX_MESSAGE_BYTES
-              }
+              },
+              timeout: WRITE_TIMEOUT_SECONDS
             )
 
-            auth = Protocol.read_frame(@socket)
+            auth = Protocol.read_frame(@socket, timeout: HANDSHAKE_TIMEOUT_SECONDS)
             return false unless auth
 
             Protocol.validate_authenticate(auth)
@@ -190,7 +194,8 @@ module Giaokhoa
             if authenticated
               Protocol.write_frame(
                 @socket,
-                {'type' => 'authenticate', 'protocol_version' => Protocol::VERSION, 'ok' => true}
+                {'type' => 'authenticate', 'protocol_version' => Protocol::VERSION, 'ok' => true},
+                timeout: WRITE_TIMEOUT_SECONDS
               )
               true
             else
@@ -201,7 +206,8 @@ module Giaokhoa
                   'protocol_version' => Protocol::VERSION,
                   'ok' => false,
                   'error' => {'code' => 'AUTH_FAILED', 'message' => 'authentication failed'}
-                }
+                },
+                timeout: WRITE_TIMEOUT_SECONDS
               )
               false
             end
@@ -211,7 +217,7 @@ module Giaokhoa
 
           def request_loop
             until closed?
-              message = Protocol.read_frame(@socket)
+              message = Protocol.read_frame(@socket, timeout: IDLE_READ_TIMEOUT_SECONDS)
               break unless message
 
               handle_message(message)
@@ -291,7 +297,7 @@ module Giaokhoa
               break if item.equal?(STOP_WRITER)
 
               response, release = item
-              Protocol.write_frame(@socket, response)
+              Protocol.write_frame(@socket, response, timeout: WRITE_TIMEOUT_SECONDS)
               release_request_id(response['id']) if release
             end
           rescue Protocol::FrameError, IOError, SystemCallError

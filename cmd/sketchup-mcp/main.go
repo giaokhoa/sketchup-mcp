@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/giaokhoa/sketchup-mcp/internal/app"
+	"github.com/giaokhoa/sketchup-mcp/internal/sessions"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -29,5 +30,11 @@ func newLogger(w io.Writer) *slog.Logger {
 }
 
 func run(ctx context.Context, logger *slog.Logger) error {
-	return app.NewServer(logger).Run(ctx, &mcp.StdioTransport{})
+	registry, err := sessions.NewDefaultRegistry(logger)
+	if err != nil {
+		return err
+	}
+	defer registry.Close()
+
+	return app.NewServer(logger, registry).Run(ctx, &mcp.StdioTransport{})
 }

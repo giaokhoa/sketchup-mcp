@@ -11,6 +11,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+type emptySessionLister struct{}
+
+func (emptySessionLister) List(context.Context) (sessions.ListOutput, error) {
+	return sessions.ListOutput{Sessions: []sessions.Session{}}, nil
+}
+
 func TestServerNegotiatesSupportedProtocolsAndServesTypedTool(t *testing.T) {
 	t.Parallel()
 
@@ -20,7 +26,7 @@ func TestServerNegotiatesSupportedProtocolsAndServesTypedTool(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			server := NewServer(slog.New(slog.NewTextHandler(io.Discard, nil)))
+			server := NewServer(slog.New(slog.NewTextHandler(io.Discard, nil)), emptySessionLister{})
 			serverTransport, clientTransport := mcp.NewInMemoryTransports()
 
 			serverSession, err := server.Connect(ctx, serverTransport, nil)

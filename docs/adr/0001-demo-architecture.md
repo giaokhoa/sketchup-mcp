@@ -297,12 +297,12 @@ Explicit non-goals: cloud service, OAuth, remote MCP, ChatGPT/Claude Desktop SDK
 
 ### 12. First demo target
 
-The first supported validation target is pinned to:
+The first supported validation target is:
 
-- Windows 11 24H2 x64, OS build 26100;
-- SketchUp Desktop 2026.1.3 for Windows, build 26.1.256, 64-bit.
+- Windows 11 x64;
+- SketchUp Desktop 2026 for Windows, major version `26.x` (`>=26.0,<27.0`), 64-bit.
 
-This is a test target, not a promise that other Windows 11 / SketchUp 2026 maintenance builds are incompatible. Support is widened only after validation.
+Issue #5 smoke validation uses SketchUp `26.0.429`. That build is the first verified build, not a minimum-version requirement. Other `26.x` maintenance releases are within the intended compatibility line; a future `27.x` release requires separate validation before being claimed as supported.
 
 ## Session information message
 
