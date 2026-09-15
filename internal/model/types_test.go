@@ -1,6 +1,10 @@
 package model
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
 
 func TestEntityRefValidation(t *testing.T) {
 	t.Parallel()
@@ -24,6 +28,29 @@ func TestEntityRefValidation(t *testing.T) {
 	for _, ref := range tests {
 		if err := ref.Validate(); err == nil {
 			t.Fatalf("invalid EntityRef accepted: %#v", ref)
+		}
+	}
+}
+
+func TestZeroRevisionsRemainPresentInToolOutputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value any
+		field string
+	}{
+		{name: "summary", value: SummaryOutput{}, field: `"revision":0`},
+		{name: "selection", value: SelectionOutput{}, field: `"revision":0`},
+		{name: "inspect", value: InspectOutput{}, field: `"current_revision":0`},
+	}
+	for _, test := range tests {
+		data, err := json.Marshal(test.value)
+		if err != nil {
+			t.Fatalf("%s marshal failed: %v", test.name, err)
+		}
+		if !strings.Contains(string(data), test.field) {
+			t.Fatalf("%s omitted zero revision: %s", test.name, data)
 		}
 	}
 }

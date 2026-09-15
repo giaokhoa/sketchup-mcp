@@ -155,6 +155,15 @@ class ModelContextTest < Minitest::Test
     assert_equal 3, @state.snapshot.fetch(:revision)
   end
 
+  def test_revision_does_not_depend_on_ruby_model_wrapper_identity
+    callback_model = FakeModel.new(guid: 'guid-a')
+    @model.observer.onTransactionCommit(callback_model)
+
+    Sketchup.active_model = FakeModel.new(guid: 'guid-a')
+
+    assert_equal 1, @state.snapshot.fetch(:revision)
+  end
+
   def test_guid_change_rebases_revision_and_invalidates_old_reference_epoch
     @model.observer.onTransactionCommit(@model)
     assert_equal 1, @state.snapshot.fetch(:revision)

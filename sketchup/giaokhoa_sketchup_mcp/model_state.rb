@@ -39,11 +39,6 @@ module Giaokhoa
       end
 
       def track(model)
-        if @model.equal?(model)
-          rebase_guid(model)
-          return nil
-        end
-
         detach
         @model = model
         @guid = model.guid
@@ -54,8 +49,7 @@ module Giaokhoa
 
       def capture
         model = Sketchup.active_model
-        track(model)
-        rebase_guid(model)
+        track(model) if @model.nil? || model.guid != @guid
         [
           model,
           {
@@ -72,7 +66,7 @@ module Giaokhoa
       end
 
       def transaction_changed(model)
-        return nil unless @model.equal?(model)
+        return nil unless @model
 
         return nil if rebase_guid(model)
 
