@@ -87,7 +87,7 @@ type Counts struct {
 type SummaryOutput struct {
 	SessionID         string      `json:"session_id,omitempty"`
 	ModelGUID         string      `json:"model_guid,omitempty"`
-	Revision          uint64      `json:"revision,omitempty"`
+	Revision          uint64      `json:"revision"`
 	Title             string      `json:"title,omitempty"`
 	Path              string      `json:"path,omitempty"`
 	Units             Units       `json:"units"`
@@ -118,7 +118,7 @@ type SelectionEntity struct {
 type SelectionOutput struct {
 	SessionID     string            `json:"session_id,omitempty"`
 	ModelGUID     string            `json:"model_guid,omitempty"`
-	Revision      uint64            `json:"revision,omitempty"`
+	Revision      uint64            `json:"revision"`
 	SelectedCount int               `json:"selected_count"`
 	ReturnedCount int               `json:"returned_count"`
 	Truncated     bool              `json:"truncated"`
@@ -153,7 +153,7 @@ type EntityDetails struct {
 }
 
 type InspectOutput struct {
-	CurrentRevision  uint64         `json:"current_revision,omitempty"`
+	CurrentRevision  uint64         `json:"current_revision"`
 	RevisionMismatch bool           `json:"revision_mismatch"`
 	Entity           *EntityDetails `json:"entity,omitempty"`
 	Error            *ToolError     `json:"error,omitempty"`
