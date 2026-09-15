@@ -18,6 +18,8 @@ import (
 	"github.com/giaokhoa/sketchup-mcp/internal/bridge"
 )
 
+var ErrSessionNotFound = errors.New("session not found")
+
 type ListInput struct{}
 
 type Model struct {
@@ -104,6 +106,26 @@ func (r *Registry) List(ctx context.Context) (ListOutput, error) {
 		return sessions[i].SessionID < sessions[j].SessionID
 	})
 	return ListOutput{Sessions: sessions}, nil
+}
+
+func (r *Registry) Call(
+	ctx context.Context,
+	sessionID string,
+	operation string,
+	payload any,
+	output any,
+) error {
+	if err := r.Refresh(ctx); err != nil {
+		return err
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	entry := r.entries[sessionID]
+	if entry == nil {
+		return fmt.Errorf("%w: %s", ErrSessionNotFound, sessionID)
+	}
+	return entry.client.Call(ctx, operation, payload, output)
 }
 
 func (r *Registry) Refresh(ctx context.Context) error {

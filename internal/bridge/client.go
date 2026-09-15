@@ -88,6 +88,7 @@ type responseMessage struct {
 type ResponseError struct {
 	Code    string
 	Message string
+	Details json.RawMessage
 }
 
 func (e *ResponseError) Error() string {
@@ -128,6 +129,10 @@ func (c *Client) SessionInfo(ctx context.Context) (SessionInfo, error) {
 		return SessionInfo{}, errors.New("session.info returned a different session_id")
 	}
 	return info, nil
+}
+
+func (c *Client) Call(ctx context.Context, operation string, payload any, output any) error {
+	return c.request(ctx, operation, payload, output)
 }
 
 func (c *Client) Close() error {
@@ -248,7 +253,7 @@ func (c *Client) request(ctx context.Context, operation string, payload any, out
 		if response.Error == nil {
 			return errors.New("bridge returned an error without details")
 		}
-		return &ResponseError{Code: response.Error.Code, Message: response.Error.Message}
+		return &ResponseError{Code: response.Error.Code, Message: response.Error.Message, Details: response.Error.Details}
 	}
 	if len(response.Payload) == 0 {
 		return errors.New("bridge success response has no payload")
