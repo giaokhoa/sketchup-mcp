@@ -181,6 +181,7 @@ type LayoutDimensionAddInput struct {
 	EndPIDPath string `json:"end_pid_path,omitempty" jsonschema:"optional SketchUp persistent ID for a deep connection"`
 	OffsetMM float64 `json:"offset_mm" jsonschema:"signed paper-space distance from measured points to the dimension line in millimeters"`
 	Alignment string `json:"alignment" jsonschema:"auto horizontal vertical or aligned"`
+	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
 }
 
 func (i LayoutDimensionAddInput) Validate() error {
@@ -211,7 +212,8 @@ func (i LayoutDimensionAddInput) BridgePayload() any {
 		EndPIDPath string `json:"end_pid_path"`
 		OffsetMM float64 `json:"offset_mm"`
 		Alignment string `json:"alignment"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Dimension"), i.LayoutPath, i.PageIndex, i.ViewportRef, i.StartPointMM, i.EndPointMM, i.StartPIDPath, i.EndPIDPath, i.OffsetMM, i.Alignment}
+		StyleID string `json:"style_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Dimension"), i.LayoutPath, i.PageIndex, i.ViewportRef, i.StartPointMM, i.EndPointMM, i.StartPIDPath, i.EndPIDPath, i.OffsetMM, i.Alignment, i.StyleID}
 }
 
 type LayoutTextAddInput struct {
@@ -223,6 +225,7 @@ type LayoutTextAddInput struct {
 	FontSizePT float64 `json:"font_size_pt"`
 	Bold bool `json:"bold"`
 	Alignment string `json:"alignment" jsonschema:"left center or right"`
+	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
 }
 
 func (i LayoutTextAddInput) Validate() error {
@@ -249,7 +252,8 @@ func (i LayoutTextAddInput) BridgePayload() any {
 		FontSizePT float64 `json:"font_size_pt"`
 		Bold bool `json:"bold"`
 		Alignment string `json:"alignment"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Text"), i.LayoutPath, i.PageIndex, i.BoundsMM, i.Text, i.FontSizePT, i.Bold, i.Alignment}
+		StyleID string `json:"style_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Text"), i.LayoutPath, i.PageIndex, i.BoundsMM, i.Text, i.FontSizePT, i.Bold, i.Alignment, i.StyleID}
 }
 
 type LayoutLineAddInput struct {
