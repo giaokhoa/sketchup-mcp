@@ -17,6 +17,7 @@ module Giaokhoa
           'entity.name.set',
           'assembly.create',
           'geometry.create_box',
+          'layout.a3_sheet.create',
           'changes.undo'
         ].freeze
         MAX_SELECTION_ENTITIES = 100
@@ -71,6 +72,8 @@ module Giaokhoa
             @mutation_engine.create_assembly(payload)
           when 'geometry.create_box'
             @mutation_engine.create_box(payload)
+          when 'layout.a3_sheet.create'
+            @mutation_engine.create_layout_a3(payload)
           when 'changes.undo'
             @mutation_engine.undo(payload)
           else
