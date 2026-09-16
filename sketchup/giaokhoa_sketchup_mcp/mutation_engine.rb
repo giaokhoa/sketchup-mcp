@@ -249,37 +249,37 @@ module Giaokhoa
         end
       end
 
-      def create_layout_a3(payload)
+      def create_documentation_snapshot(payload)
         context, result = prepare_request(
-          'layout.a3_sheet.create',
+          'documentation.snapshot.create',
           payload,
-          %w[mutation output_directory base_name export_pdf],
-          'SketchUp MCP: Create A3 LayOut Sheet'
+          %w[mutation output_directory base_name],
+          'SketchUp MCP: Prepare Documentation Snapshot'
         )
         return result if result
 
         output_directory = payload['output_directory']
         base_name = payload['base_name']
-        export_pdf = payload['export_pdf']
-
         unless output_directory.is_a?(String) && !output_directory.strip.empty? &&
-               base_name.is_a?(String) && base_name.match?(/\A[A-Za-z0-9._-]{1,80}\z/) &&
-               (export_pdf == true || export_pdf == false)
-          return invalid('layout output_directory/base_name/export_pdf are invalid')
+               base_name.is_a?(String) && base_name.match?(/\A[A-Za-z0-9._-]{1,80}\z/)
+          return invalid('documentation output_directory/base_name are invalid')
         end
 
-        builder = LayoutSheetBuilder.new(
+        builder = DocumentationSnapshotBuilder.new(
           model: context.model,
           output_directory: output_directory,
-          base_name: base_name,
-          export_pdf: export_pdf
+          base_name: base_name
         )
 
-        perform_operation(context, 'SketchUp MCP: Create A3 LayOut Sheet') do
-          scene_names = builder.prepare_scenes!
+        perform_operation(context, 'SketchUp MCP: Prepare Documentation Snapshot') do
+          prepared = builder.prepare!
 
           lambda do |_post_snapshot|
-            builder.build!(scene_names)
+            saved = builder.save_snapshot!(prepared)
+            {
+              'skp_path' => saved.fetch('snapshot_path'),
+              'spec' => saved.fetch('spec')
+            }
           end
         end
       end
