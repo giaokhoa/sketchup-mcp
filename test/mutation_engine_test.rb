@@ -573,4 +573,36 @@ class MutationEngineTest < Minitest::Test
     assert_equal 'INVALID_REQUEST', result.fetch(:error).fetch('code')
     assert_equal 0, @model.start_count
   end
+
+  def test_delete_and_material_reject_stale_revision
+    @model.observer.onTransactionCommit(@model)
+
+    delete_result = @engine.delete(delete_payload(operation_id: 'stale-delete'))
+    material_result = @engine.set_material(material_payload(operation_id: 'stale-material'))
+
+    refute delete_result.fetch(:ok)
+    assert_equal 'STALE_REVISION', delete_result.fetch(:error).fetch('code')
+    refute material_result.fetch(:ok)
+    assert_equal 'STALE_REVISION', material_result.fetch(:error).fetch('code')
+    assert_equal @entity, @model.find_entity_by_persistent_id(42)
+    assert_nil @entity.material
+    assert_equal 0, @model.start_count
+  end
+
+  def test_delete_and_material_reject_unsupported_entity_type
+    face = @model.register(FakeEntity.new(model: @model, persistent_id: 45, type: 'Face'))
+
+    delete_result = @engine.delete(
+      delete_payload(operation_id: 'delete-face', entity: face)
+    )
+    material_result = @engine.set_material(
+      material_payload(operation_id: 'material-face', entity: face)
+    )
+
+    refute delete_result.fetch(:ok)
+    assert_equal 'ENTITY_TYPE_NOT_SUPPORTED', delete_result.fetch(:error).fetch('code')
+    refute material_result.fetch(:ok)
+    assert_equal 'ENTITY_TYPE_NOT_SUPPORTED', material_result.fetch(:error).fetch('code')
+    assert_equal 0, @model.start_count
+  end
 end
