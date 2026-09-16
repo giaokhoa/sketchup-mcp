@@ -52,6 +52,15 @@ func (emptySessionLister) Call(_ context.Context, _ string, operation string, _ 
 				Color: model.RGBColor{R: 1, G: 2, B: 3},
 			},
 		}
+	case *model.NameSetOutput:
+		*target = model.NameSetOutput{
+			OperationID: "op-name", ModelGUID: "model-guid", Revision: 8,
+			EntityRef: &model.EntityRef{
+				SessionID: "11111111-1111-4111-8111-111111111111",
+				ModelGUID: "model-guid", PersistentID: 42, Revision: 8,
+			},
+			Name: "Cabinet Side Left",
+		}
 	case *model.CreateBoxOutput:
 		*target = model.CreateBoxOutput{
 			OperationID: "op-box", ModelGUID: "model-guid", Revision: 8,
@@ -333,6 +342,7 @@ func TestMutationToolsExposeTypedIdempotentWriteSchemas(t *testing.T) {
 		EntityTranslateToolName,
 		EntityDeleteToolName,
 		EntityMaterialSetToolName,
+		EntityNameSetToolName,
 		BoxCreateToolName,
 		ModelUndoToolName,
 	} {
