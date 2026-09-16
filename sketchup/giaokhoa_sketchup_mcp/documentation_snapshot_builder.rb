@@ -352,9 +352,10 @@ module Giaokhoa
         ))
 
         front_height_x = min_x(leg_left)
+        front_height_y = min_y(leg_left)
         dimensions << dim('front-height', 'front', leg_left,
-                          [front_height_x, min_y(leg_left), min_z(leg_left)],
-                          top, [front_height_x, top_front_y, max_z(top)],
+                          [front_height_x, front_height_y, min_z(leg_left)],
+                          top, [front_height_x, front_height_y, max_z(top)],
                           [-mm(100), 0.0, 0.0])
         dimensions << vertical_size_dim('front-leg-height', 'front', leg_left, [mm(100), 0.0, 0.0])
         dimensions << vertical_size_dim('front-door-height', 'front', doors.first, [mm(100), 0.0, 0.0])
@@ -397,9 +398,11 @@ module Giaokhoa
           parts.fetch(:side_left), parts.fetch(:side_right), doors,
           [0.0, 0.0, -mm(90)]
         ))
+        shelf_level_x = min_x(shelf_left)
+        shelf_level_y = min_y(shelf_left)
         dimensions << dim('section-b-shelf-level', 'section_b', bottom,
-                          [min_x(bottom), min_y(bottom), max_z(bottom)],
-                          shelf_left, [min_x(shelf_left), min_y(shelf_left), max_z(shelf_left)],
+                          [shelf_level_x, shelf_level_y, max_z(bottom)],
+                          shelf_left, [shelf_level_x, shelf_level_y, max_z(shelf_left)],
                           [-mm(100), 0.0, 0.0])
 
         # Side: overall depth/height plus true side and panel thickness.
@@ -465,6 +468,7 @@ module Giaokhoa
       def dim(id, view_id, start_node, start_point, end_node, end_point, offset)
         validate_point_in_node_bounds!(id, 'start', start_node, start_point)
         validate_point_in_node_bounds!(id, 'end', end_node, end_point)
+        validate_axis_aligned_dimension!(id, start_point, end_point)
 
         {
           'id' => id,
@@ -479,6 +483,14 @@ module Giaokhoa
           },
           'offset' => point_hash(offset)
         }
+      end
+
+      def validate_axis_aligned_dimension!(dimension_id, start_point, end_point)
+        tolerance = 0.001
+        changed_axes = start_point.zip(end_point).count { |a, b| (a - b).abs > tolerance }
+        return if changed_axes == 1
+
+        raise "dimension #{dimension_id} must be axis-aligned; #{changed_axes} axes differ"
       end
 
       def validate_point_in_node_bounds!(dimension_id, endpoint, node, point)
