@@ -8,6 +8,7 @@ module Giaokhoa
           'system.ping',
           'session.info',
           'model.summary',
+          'model.bounds',
           'selection.get',
           'entity.inspect',
           'entity.children.list',
@@ -17,6 +18,9 @@ module Giaokhoa
           'entity.name.set',
           'assembly.create',
           'geometry.create_box',
+          'section_plane.create',
+          'scene.create',
+          'model.file.save_copy',
           'layout.a3_sheet.create',
           'layout.document.create',
           'layout.viewport.add',
@@ -60,6 +64,9 @@ module Giaokhoa
           when 'model.summary'
             return invalid('payload must be an empty object') unless payload.empty?
             model_summary
+          when 'model.bounds'
+            return invalid('payload must be an empty object') unless payload.empty?
+            @mutation_engine.model_bounds(payload)
           when 'selection.get'
             return invalid('payload must be an empty object') unless payload.empty?
             selection_get
@@ -79,6 +86,12 @@ module Giaokhoa
             @mutation_engine.create_assembly(payload)
           when 'geometry.create_box'
             @mutation_engine.create_box(payload)
+          when 'section_plane.create'
+            @mutation_engine.create_section_plane(payload)
+          when 'scene.create'
+            @mutation_engine.create_scene(payload)
+          when 'model.file.save_copy'
+            @mutation_engine.save_model_copy(payload)
           when 'layout.a3_sheet.create'
             @mutation_engine.create_layout_a3(payload)
           when 'layout.document.create'
