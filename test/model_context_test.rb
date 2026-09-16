@@ -15,6 +15,7 @@ module Sketchup
 end
 
 require_relative '../sketchup/giaokhoa_sketchup_mcp/model_state'
+require_relative '../sketchup/giaokhoa_sketchup_mcp/mutation_engine'
 require_relative '../sketchup/giaokhoa_sketchup_mcp/commands/registry'
 
 class ModelContextTest < Minitest::Test

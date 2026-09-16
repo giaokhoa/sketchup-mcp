@@ -27,6 +27,24 @@ func (emptySessionLister) Call(_ context.Context, _ string, operation string, _ 
 		*target = model.SelectionOutput{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", Revision: 7, Entities: []model.SelectionEntity{}}
 	case *model.InspectOutput:
 		*target = model.InspectOutput{CurrentRevision: 7, RevisionMismatch: true}
+	case *model.TranslateOutput:
+		*target = model.TranslateOutput{
+			OperationID: "op-translate", ModelGUID: "model-guid", Revision: 8,
+			EntityRef: &model.EntityRef{
+				SessionID: "11111111-1111-4111-8111-111111111111",
+				ModelGUID: "model-guid", PersistentID: 42, Revision: 8,
+			},
+		}
+	case *model.CreateBoxOutput:
+		*target = model.CreateBoxOutput{
+			OperationID: "op-box", ModelGUID: "model-guid", Revision: 8,
+			EntityRef: &model.EntityRef{
+				SessionID: "11111111-1111-4111-8111-111111111111",
+				ModelGUID: "model-guid", PersistentID: 99, Revision: 8,
+			},
+		}
+	case *model.UndoOutput:
+		*target = model.UndoOutput{OperationID: "op-undo", ModelGUID: "model-guid", Revision: 8}
 	default:
 		return errors.New("unexpected output type")
 	}
@@ -257,6 +275,94 @@ func TestSessionNotFoundIsStructuredDomainError(t *testing.T) {
 	}
 	if output.Error == nil || output.Error.Code != model.ErrorSessionNotFound {
 		t.Fatalf("error = %#v, want SESSION_NOT_FOUND", output.Error)
+	}
+
+	if err := clientSession.Close(); err != nil {
+		t.Fatalf("clientSession.Close() error = %v", err)
+	}
+	if err := serverSession.Wait(); err != nil {
+		t.Fatalf("serverSession.Wait() error = %v", err)
+	}
+}
+
+func TestMutationToolsExposeTypedIdempotentWriteSchemas(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	server := NewServer(slog.New(slog.NewTextHandler(io.Discard, nil)), emptySessionLister{})
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatalf("server.Connect() error = %v", err)
+	}
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "test"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client.Connect() error = %v", err)
+	}
+	defer clientSession.Close()
+
+	listResult, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools() error = %v", err)
+	}
+	tools := make(map[string]*mcp.Tool, len(listResult.Tools))
+	for _, tool := range listResult.Tools {
+		tools[tool.Name] = tool
+	}
+
+	for _, name := range []string{EntityTranslateToolName, BoxCreateToolName, ModelUndoToolName} {
+		tool := tools[name]
+		if tool == nil {
+			t.Fatalf("tool %q not found", name)
+		}
+		if tool.InputSchema == nil || tool.OutputSchema == nil {
+			t.Fatalf("tool %q missing inferred schemas", name)
+		}
+		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint || !tool.Annotations.IdempotentHint {
+			t.Fatalf("tool %q must be write + idempotent", name)
+		}
+		if tool.Annotations.OpenWorldHint == nil || *tool.Annotations.OpenWorldHint {
+			t.Fatalf("tool %q must be closed-world", name)
+		}
+	}
+	sessionID := "11111111-1111-4111-8111-111111111111"
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: EntityTranslateToolName,
+		Arguments: map[string]any{
+			"session_id":          sessionID,
+			"operation_id":        "op-translate",
+			"expected_model_guid": "model-guid",
+			"expected_revision":   float64(7),
+			"entity_ref": map[string]any{
+				"session_id":    sessionID,
+				"model_guid":    "model-guid",
+				"persistent_id": float64(42),
+				"revision":      float64(7),
+			},
+			"translation_inches": map[string]any{
+				"x": float64(1), "y": float64(0), "z": float64(0),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool(entity.translate) error = %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("CallTool(entity.translate) returned error: %#v", result.StructuredContent)
+	}
+
+	data, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal structured content: %v", err)
+	}
+	var output model.TranslateOutput
+	if err := json.Unmarshal(data, &output); err != nil {
+		t.Fatalf("decode structured content: %v", err)
+	}
+	if output.OperationID != "op-translate" || output.EntityRef == nil || output.Revision != 8 {
+		t.Fatalf("translate output = %#v", output)
 	}
 
 	if err := clientSession.Close(); err != nil {
