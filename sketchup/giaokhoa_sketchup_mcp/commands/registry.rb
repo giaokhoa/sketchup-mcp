@@ -18,6 +18,13 @@ module Giaokhoa
           'assembly.create',
           'geometry.create_box',
           'layout.a3_sheet.create',
+          'layout.document.create',
+          'layout.viewport.add',
+          'layout.dimension.add',
+          'layout.text.add',
+          'layout.line.add',
+          'layout.rectangle.add',
+          'layout.export',
           'changes.undo'
         ].freeze
         MAX_SELECTION_ENTITIES = 100
@@ -74,6 +81,20 @@ module Giaokhoa
             @mutation_engine.create_box(payload)
           when 'layout.a3_sheet.create'
             @mutation_engine.create_layout_a3(payload)
+          when 'layout.document.create'
+            @mutation_engine.create_layout_document(payload)
+          when 'layout.viewport.add'
+            @mutation_engine.add_layout_viewport(payload)
+          when 'layout.dimension.add'
+            @mutation_engine.add_layout_dimension(payload)
+          when 'layout.text.add'
+            @mutation_engine.add_layout_text(payload)
+          when 'layout.line.add'
+            @mutation_engine.add_layout_line(payload)
+          when 'layout.rectangle.add'
+            @mutation_engine.add_layout_rectangle(payload)
+          when 'layout.export'
+            @mutation_engine.export_layout_document(payload)
           when 'changes.undo'
             @mutation_engine.undo(payload)
           else
