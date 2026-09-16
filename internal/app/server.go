@@ -17,12 +17,14 @@ const (
 	SessionsListToolName    = "sketchup.sessions.list"
 	ModelSummaryToolName    = "model.summary"
 	SelectionGetToolName    = "selection.get"
-	EntityInspectToolName   = "entity.inspect"
-	EntityTranslateToolName = "entity.translate"
+	EntityInspectToolName      = "entity.inspect"
+	EntityChildrenListToolName = "entity.children.list"
+	EntityTranslateToolName    = "entity.translate"
 	EntityDeleteToolName      = "entity.delete"
 	EntityMaterialSetToolName = "entity.material.set"
 	EntityNameSetToolName     = "entity.name.set"
-	BoxCreateToolName       = "geometry.create_box"
+	AssemblyCreateToolName     = "assembly.create"
+	BoxCreateToolName          = "geometry.create_box"
 	ModelUndoToolName       = "changes.undo"
 
 	ServerInstructions = "Start with sketchup.sessions.list and choose one live session. Read model.summary before any write and use the returned model GUID and revision. Reuse durable entity references returned by selection.get, entity.inspect, or mutation results. Give every intended write a unique operation_id. If a write returns STALE_REVISION, re-read model state and retry with a new operation_id."
@@ -115,6 +117,29 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 				return &mcp.CallToolResult{IsError: true}, output, nil
 			}
 			return nil, model.InspectOutput{}, err
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        EntityChildrenListToolName,
+		Description: "List up to 100 immediate supported Group or ComponentInstance children of one assembly entity.",
+		Annotations: readOnlyAnnotations(),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.ChildrenInput) (*mcp.CallToolResult, model.ChildrenOutput, error) {
+		var output model.ChildrenOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		ref := input.Ref()
+		if err := service.Call(ctx, ref.SessionID, EntityChildrenListToolName, ref, &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.ChildrenOutput{}, err
+		}
+		if output.Children == nil {
+			output.Children = []model.ChildEntity{}
 		}
 		return &mcp.CallToolResult{}, output, nil
 	})
