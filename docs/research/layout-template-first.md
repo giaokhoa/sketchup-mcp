@@ -36,6 +36,17 @@ Use one dictionary:
 | `template_id` | String | stable template identifier |
 | `template_kind` | String | broad reusable class such as `furniture_shopdrawing` |
 
+### Panel entities
+
+A panel is the complete paper-space cell reserved for one drawing presentation, including its viewport, connected dimensions, section marks, captions, and scale labels.
+
+| key | type | meaning |
+| --- | --- | --- |
+| `role` | String | `panel` |
+| `panel_id` | String | stable panel name matching the drawing role |
+
+Panel bounds are used for containment validation before export.
+
 ### Viewport slot entity attributes
 
 A slot is represented by a template entity whose `bounds` define the paper-space allocation rectangle.
@@ -127,6 +138,9 @@ LayOut's numeric paper coordinates are converted at the Ruby API boundary only.
   "layers": [
     {"name": "00 Shared Frame", "shared": true, "locked": true},
     {"name": "10 Viewports", "shared": false, "locked": false}
+  ],
+  "panels": [
+    {"panel_id": "front", "page_index": 0, "bounds_mm": {"x": 199, "y": 4, "width": 219, "height": 200}}
   ],
   "slots": [
     {
