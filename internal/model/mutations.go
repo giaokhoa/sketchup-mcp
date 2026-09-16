@@ -245,6 +245,59 @@ func (i NameSetInput) BridgePayload() any {
 	}
 }
 
+type AssemblyCreateInput struct {
+	MutationEnvelope
+	Name     string      `json:"name" jsonschema:"human-readable assembly group name, at most 128 UTF-8 bytes"`
+	Children []EntityRef `json:"children" jsonschema:"2 through 100 durable child references sharing one parent"`
+}
+
+func (i AssemblyCreateInput) Validate() error {
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(i.Name) == "" {
+		return errors.New("name is required")
+	}
+	if len(i.Name) > 128 {
+		return errors.New("name must be at most 128 bytes")
+	}
+	if len(i.Children) < 2 || len(i.Children) > 100 {
+		return errors.New("children must contain between 2 and 100 entity references")
+	}
+	seen := make(map[int64]struct{}, len(i.Children))
+	for index, ref := range i.Children {
+		if err := ref.Validate(); err != nil {
+			return fmt.Errorf("children[%d]: %w", index, err)
+		}
+		if ref.SessionID != i.SessionID {
+			return fmt.Errorf("children[%d] session_id must match session_id", index)
+		}
+		if ref.ModelGUID != i.ExpectedModelGUID {
+			return fmt.Errorf("children[%d] model_guid must match expected_model_guid", index)
+		}
+		if ref.Revision != i.ExpectedRevision {
+			return fmt.Errorf("children[%d] revision must match expected_revision", index)
+		}
+		if _, ok := seen[ref.PersistentID]; ok {
+			return fmt.Errorf("children[%d] duplicates persistent_id %d", index, ref.PersistentID)
+		}
+		seen[ref.PersistentID] = struct{}{}
+	}
+	return nil
+}
+
+func (i AssemblyCreateInput) BridgePayload() any {
+	return struct {
+		Mutation BridgeMutation `json:"mutation"`
+		Name     string         `json:"name"`
+		Children []EntityRef    `json:"children"`
+	}{
+		Mutation: i.bridgeMutation("SketchUp MCP: Create Assembly"),
+		Name:     i.Name,
+		Children: i.Children,
+	}
+}
+
 type BoxDimensions struct {
 	Width  float64 `json:"width" jsonschema:"box width in SketchUp internal inches, greater than zero"`
 	Depth  float64 `json:"depth" jsonschema:"box depth in SketchUp internal inches, greater than zero"`
@@ -357,6 +410,16 @@ type NameSetOutput struct {
 	EntityRef   *EntityRef `json:"entity_ref,omitempty"`
 	Name        string     `json:"name,omitempty"`
 	Error       *ToolError `json:"error,omitempty"`
+}
+
+type AssemblyCreateOutput struct {
+	OperationID string      `json:"operation_id,omitempty"`
+	ModelGUID   string      `json:"model_guid,omitempty"`
+	Revision    uint64      `json:"revision"`
+	Name        string      `json:"name,omitempty"`
+	AssemblyRef *EntityRef  `json:"assembly_ref,omitempty"`
+	Children    []EntityRef `json:"children"`
+	Error       *ToolError  `json:"error,omitempty"`
 }
 
 type UndoOutput MutationOutput
