@@ -35,6 +35,23 @@ func (emptySessionLister) Call(_ context.Context, _ string, operation string, _ 
 				ModelGUID: "model-guid", PersistentID: 42, Revision: 8,
 			},
 		}
+	case *model.DeleteOutput:
+		*target = model.DeleteOutput{
+			OperationID: "op-delete", ModelGUID: "model-guid", Revision: 8,
+			DeletedPersistentID: 42,
+		}
+	case *model.MaterialSetOutput:
+		*target = model.MaterialSetOutput{
+			OperationID: "op-material", ModelGUID: "model-guid", Revision: 8,
+			EntityRef: &model.EntityRef{
+				SessionID: "11111111-1111-4111-8111-111111111111",
+				ModelGUID: "model-guid", PersistentID: 42, Revision: 8,
+			},
+			Material: &model.MaterialInfo{
+				Name: "test-material",
+				Color: model.RGBColor{R: 1, G: 2, B: 3},
+			},
+		}
 	case *model.CreateBoxOutput:
 		*target = model.CreateBoxOutput{
 			OperationID: "op-box", ModelGUID: "model-guid", Revision: 8,
@@ -312,7 +329,13 @@ func TestMutationToolsExposeTypedIdempotentWriteSchemas(t *testing.T) {
 		tools[tool.Name] = tool
 	}
 
-	for _, name := range []string{EntityTranslateToolName, BoxCreateToolName, ModelUndoToolName} {
+	for _, name := range []string{
+		EntityTranslateToolName,
+		EntityDeleteToolName,
+		EntityMaterialSetToolName,
+		BoxCreateToolName,
+		ModelUndoToolName,
+	} {
 		tool := tools[name]
 		if tool == nil {
 			t.Fatalf("tool %q not found", name)
