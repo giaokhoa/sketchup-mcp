@@ -28,6 +28,7 @@ module Giaokhoa
         viewports = {}
         @spec.fetch('views').each do |view|
           viewport = add_viewport(doc, layer, page, view)
+          validate_viewport_model_fit!(viewport, view)
           viewports[view.fetch('id')] = viewport
           add_view_label(doc, layer, page, view)
         end
@@ -173,6 +174,36 @@ module Giaokhoa
         doc.add_entity(viewport, layer, page)
         viewport.render
         viewport
+      end
+
+      def validate_viewport_model_fit!(viewport, view)
+        root = @spec.fetch('root_bounds')
+        min = root.fetch('min')
+        max = root.fetch('max')
+        corners = [
+          [min.fetch('x'), min.fetch('y'), min.fetch('z')],
+          [max.fetch('x'), min.fetch('y'), min.fetch('z')],
+          [min.fetch('x'), max.fetch('y'), min.fetch('z')],
+          [max.fetch('x'), max.fetch('y'), min.fetch('z')],
+          [min.fetch('x'), min.fetch('y'), max.fetch('z')],
+          [max.fetch('x'), min.fetch('y'), max.fetch('z')],
+          [min.fetch('x'), max.fetch('y'), max.fetch('z')],
+          [max.fetch('x'), max.fetch('y'), max.fetch('z')]
+        ]
+
+        rect = view.fetch('rect')
+        margin = 0.03
+        left = rect.fetch('left') + margin
+        top = rect.fetch('top') + margin
+        right = rect.fetch('right') - margin
+        bottom = rect.fetch('bottom') - margin
+
+        corners.each do |coords|
+          paper = viewport.model_to_paper_point(Geom::Point3d.new(*coords))
+          next if paper.x.between?(left, right) && paper.y.between?(top, bottom)
+
+          raise "view #{view.fetch('id')} clips model bounds at paper point #{paper.x.round(3)},#{paper.y.round(3)}"
+        end
       end
 
       def add_connected_dimension(doc, layer, page, viewport, spec)
