@@ -270,6 +270,7 @@ type LayoutLineAddInput struct {
 	StartMM LayoutPoint2MM `json:"start_mm"`
 	EndMM LayoutPoint2MM `json:"end_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
+	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
 }
 
 func (i LayoutLineAddInput) Validate() error {
@@ -292,7 +293,8 @@ func (i LayoutLineAddInput) BridgePayload() any {
 		StartMM LayoutPoint2MM `json:"start_mm"`
 		EndMM LayoutPoint2MM `json:"end_mm"`
 		StrokeWidth float64 `json:"stroke_width"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Line"), i.LayoutPath, i.PageIndex, i.LayerName, i.StartMM, i.EndMM, i.StrokeWidth}
+		StyleID string `json:"style_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Line"), i.LayoutPath, i.PageIndex, i.LayerName, i.StartMM, i.EndMM, i.StrokeWidth, i.StyleID}
 }
 
 type LayoutRectangleAddInput struct {
@@ -302,6 +304,7 @@ type LayoutRectangleAddInput struct {
 	LayerName string `json:"layer_name,omitempty" jsonschema:"optional existing LayOut layer name"`
 	BoundsMM LayoutRectMM `json:"bounds_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
+	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
 }
 
 func (i LayoutRectangleAddInput) Validate() error {
@@ -321,7 +324,8 @@ func (i LayoutRectangleAddInput) BridgePayload() any {
 		LayerName string `json:"layer_name"`
 		BoundsMM LayoutRectMM `json:"bounds_mm"`
 		StrokeWidth float64 `json:"stroke_width"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Rectangle"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.StrokeWidth}
+		StyleID string `json:"style_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Rectangle"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.StrokeWidth, i.StyleID}
 }
 
 type LayoutExportInput struct {
