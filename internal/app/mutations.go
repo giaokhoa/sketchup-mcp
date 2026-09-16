@@ -85,6 +85,28 @@ func addMutationTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        AssemblyCreateToolName,
+		Description: "Create one named SketchUp assembly Group from 2 to 100 existing sibling Group or ComponentInstance entities.",
+		Annotations: mutationAnnotations(false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.AssemblyCreateInput) (*mcp.CallToolResult, model.AssemblyCreateOutput, error) {
+		var output model.AssemblyCreateOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, AssemblyCreateToolName, input.BridgePayload(), &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.AssemblyCreateOutput{}, err
+		}
+		if output.Children == nil {
+			output.Children = []model.EntityRef{}
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        BoxCreateToolName,
 		Description: "Create one grouped rectangular box with an explicit origin and positive dimensions.",
 		Annotations: mutationAnnotations(false),

@@ -22,6 +22,8 @@ const (
 	ErrorInvalidTransform              = "INVALID_TRANSFORM"
 	ErrorSketchUpOperationFailed       = "SKETCHUP_OPERATION_FAILED"
 	ErrorMaterialNameConflict           = "MATERIAL_NAME_CONFLICT"
+	ErrorAssemblyParentMismatch          = "ASSEMBLY_PARENT_MISMATCH"
+	ErrorAssemblySharedDefinition        = "ASSEMBLY_SHARED_DEFINITION"
 )
 
 type ToolError struct {
@@ -167,4 +169,33 @@ type InspectOutput struct {
 	RevisionMismatch bool           `json:"revision_mismatch"`
 	Entity           *EntityDetails `json:"entity,omitempty"`
 	Error            *ToolError     `json:"error,omitempty"`
+}
+
+type ChildrenInput EntityRef
+
+func (i ChildrenInput) Ref() EntityRef {
+	return EntityRef(i)
+}
+
+func (i ChildrenInput) Validate() error {
+	return i.Ref().Validate()
+}
+
+type ChildEntity struct {
+	Ref      *EntityRef `json:"ref,omitempty"`
+	Type     string     `json:"type"`
+	Name     string     `json:"name,omitempty"`
+	Material string     `json:"material,omitempty"`
+	Error    *ToolError `json:"error,omitempty"`
+}
+
+type ChildrenOutput struct {
+	CurrentRevision     uint64        `json:"current_revision"`
+	RevisionMismatch    bool          `json:"revision_mismatch"`
+	RawEntityCount      int           `json:"raw_entity_count"`
+	SupportedChildCount int           `json:"supported_child_count"`
+	ReturnedCount       int           `json:"returned_count"`
+	Truncated           bool          `json:"truncated"`
+	Children            []ChildEntity `json:"children"`
+	Error               *ToolError    `json:"error,omitempty"`
 }

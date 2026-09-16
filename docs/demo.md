@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 10 |
+| Local MCP tools | 12 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -106,6 +106,8 @@ entity.translate
 entity.delete
 entity.material.set
 entity.name.set
+entity.children.list
+assembly.create
 geometry.create_box
 changes.undo
 ```
@@ -122,7 +124,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly ten MCP tools discovered;
+- exactly twelve MCP tools discovered;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
@@ -243,6 +245,65 @@ Final readback:
 
 The names are instance/group names intended for practical Outliner navigation;
 the MCP does not rename shared ComponentDefinition objects.
+
+## Nested furniture assembly smoke - issue #21
+
+The named 34-part cabinet was rebuilt in a fresh SketchUp 2026 instance using
+the packaged #21 artifact and then converted from a flat model into a real
+assembly hierarchy:
+
+```text
+Cabinet - 1800
+├─ Carcass
+│  └─ 8 named structural boards
+├─ Legs
+│  └─ 4 named legs
+├─ Door Assembly - 01
+│  ├─ Door - 01
+│  └─ Handle - Door 01
+├─ Door Assembly - 02
+├─ Door Assembly - 03
+├─ Door Assembly - 04
+├─ Drawer Assembly - Left
+│  └─ 6 drawer boards + drawer handle
+└─ Drawer Assembly - Right
+   └─ 6 drawer boards + drawer handle
+```
+
+Live MCP validation:
+
+- exactly 12 tools discovered;
+- an assembly replay returned the cached result without regrouping;
+- `changes.undo` restored two probe children from an assembly;
+- a stale assembly request returned `STALE_REVISION`;
+- final model has exactly one top-level Group named `Cabinet - 1800`;
+- `entity.children.list` returns 8 immediate root subassemblies;
+- recursive child listing returns all original 34 named parts;
+- every original part persistent ID remains addressable after two nesting levels;
+- all original names and materials remain attached to the original parts;
+- overall cabinet width remains **1800.000 mm**;
+- SketchUp remained responsive.
+
+### World-position validation
+
+A nested entity's `bounds` are expressed in its current parent context, so
+comparing raw child bounds before and after regrouping is not a valid world-space
+movement test.
+
+The live acceptance therefore inspected the transformation at all three levels
+and composed:
+
+```text
+Cabinet transform
+  + Subassembly transform
+  + Part transform
+  = original part world translation
+```
+
+All 34 composed world translations matched their pre-grouping millimeter
+origins within floating-point tolerance. SketchUp chose a non-zero transform for
+the root assembly, but compensated the child transforms so the physical model
+did not move.
 
 ## Known local-demo limitations
 

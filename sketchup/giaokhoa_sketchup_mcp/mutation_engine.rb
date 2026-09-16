@@ -165,6 +165,90 @@ module Giaokhoa
         end
       end
 
+      def create_assembly(payload)
+        context, result = prepare_request(
+          'assembly.create',
+          payload,
+          %w[mutation name children],
+          'SketchUp MCP: Create Assembly'
+        )
+        return result if result
+
+        name = payload['name']
+        unless name.is_a?(String) && !name.strip.empty? && name.bytesize <= 128
+          return invalid('name must be a non-empty string up to 128 bytes')
+        end
+
+        child_refs = payload['children']
+        unless child_refs.is_a?(Array) && child_refs.length.between?(2, 100)
+          return invalid('children must contain between 2 and 100 entity references')
+        end
+
+        entities = []
+        persistent_ids = []
+        child_refs.each do |ref|
+          entity, entity_error = resolve_entity(context, ref)
+          return entity_error if entity_error
+
+          pid = entity.persistent_id
+          return invalid('children persistent_id values must be unique') if persistent_ids.include?(pid)
+
+          entities << entity
+          persistent_ids << pid
+        end
+
+        parent = entities.first.parent
+        unless parent && entities.all? { |entity| entity.parent.equal?(parent) }
+          return error(
+            'ASSEMBLY_PARENT_MISMATCH',
+            'all assembly children must share the same SketchUp parent'
+          )
+        end
+
+        if parent.respond_to?(:instances) && parent.instances.respond_to?(:length) &&
+           parent.instances.length > 1
+          return error(
+            'ASSEMBLY_SHARED_DEFINITION',
+            'cannot regroup entities inside a shared component definition'
+          )
+        end
+
+        if entities.any? { |entity| active_path_contains?(context.model, entity) }
+          return error(
+            'LOCKED_ENTITY_OR_CONTEXT',
+            'assembly child is part of the active edit context'
+          )
+        end
+
+        parent_entities = parent.respond_to?(:entities) ? parent.entities : nil
+        return error('ASSEMBLY_PARENT_MISMATCH', 'assembly parent does not expose an Entities collection') unless parent_entities
+
+        perform_operation(context, 'SketchUp MCP: Create Assembly') do
+          group = parent_entities.add_group(entities)
+          raise OperationFailure, 'failed to create assembly group' unless group
+
+          group.name = name
+          unless group.respond_to?(:name) && group.name.to_s == name
+            raise OperationFailure, 'assembly name was not applied'
+          end
+
+          lambda do |post_snapshot|
+            refreshed_children = persistent_ids.map do |persistent_id|
+              child = context.model.find_entity_by_persistent_id(persistent_id)
+              raise OperationFailure, "assembly child #{persistent_id} no longer exists" unless child
+
+              reference_for(child, post_snapshot)
+            end
+
+            {
+              'name' => group.name.to_s,
+              'assembly_ref' => reference_for(group, post_snapshot),
+              'children' => refreshed_children
+            }
+          end
+        end
+      end
+
       def create_box(payload)
         context, result = prepare_request(
           'geometry.create_box',

@@ -66,10 +66,12 @@ func TestFinalDemoSurfaceIsExactAndDiscoverable(t *testing.T) {
 		BoxCreateToolName,
 		ModelUndoToolName,
 		EntityInspectToolName,
+		EntityChildrenListToolName,
 		EntityTranslateToolName,
 		EntityDeleteToolName,
 		EntityMaterialSetToolName,
 		EntityNameSetToolName,
+		AssemblyCreateToolName,
 		ModelSummaryToolName,
 		SelectionGetToolName,
 		SessionsListToolName,
@@ -83,7 +85,8 @@ func TestFinalDemoSurfaceIsExactAndDiscoverable(t *testing.T) {
 		SessionsListToolName:  true,
 		ModelSummaryToolName:  true,
 		SelectionGetToolName:  true,
-		EntityInspectToolName: true,
+		EntityInspectToolName:      true,
+		EntityChildrenListToolName: true,
 	}
 	for _, tool := range result.Tools {
 		if tool.Annotations.ReadOnlyHint != readOnly[tool.Name] {
