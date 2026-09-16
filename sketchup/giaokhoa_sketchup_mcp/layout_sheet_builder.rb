@@ -95,24 +95,32 @@ module Giaokhoa
         page = doc.pages.first
         layer = doc.layers.first
 
+        add_sheet_frame(doc, layer, page)
+
         specs = [
-          [:plan, 'MẶT BẰNG', [0.45, 0.60, 5.00, 3.45], 1.0 / 12.0, false],
-          [:front, 'MẶT ĐỨNG CHÍNH', [5.60, 0.60, 5.95, 3.45], 1.0 / 12.0, false],
-          [:section_a, 'MẶT CẮT A-A', [11.70, 0.60, 4.35, 3.45], 1.0 / 8.0, false],
-          [:section_b, 'MẶT CẮT B-B', [0.45, 6.00, 7.15, 4.55], 1.0 / 10.0, false],
-          [:side, 'MẶT BÊN', [7.78, 6.00, 2.75, 4.55], 1.0 / 8.0, false],
-          [:iso, 'PHỐI CẢNH', [10.72, 6.00, 5.35, 4.55], nil, true]
+          [:plan, 'MẶT BẰNG', [0.55, 0.60, 4.70, 3.25], 1.0 / 15.0, false, 4.55],
+          [:front, 'MẶT ĐỨNG CHÍNH', [5.82, 0.55, 5.48, 3.40], 1.0 / 15.0, false, 4.55],
+          [:section_a, 'MẶT CẮT A-A', [11.92, 0.55, 4.10, 3.45], 1.0 / 10.0, false, 4.55],
+          [:section_b, 'MẶT CẮT B-B', [0.55, 5.95, 6.35, 3.75], 1.0 / 15.0, false, 10.62],
+          [:side, 'MẶT BÊN', [7.42, 5.95, 2.95, 3.80], 1.0 / 10.0, false, 10.62],
+          [:iso, 'PHỐI CẢNH', [10.88, 5.80, 5.15, 4.05], nil, true, 10.62]
         ]
 
         viewports = {}
-        specs.each do |key, title, rect, scale, perspective|
+        specs.each do |key, title, rect, scale, perspective, label_y|
           viewport = add_viewport(
             doc, layer, page, paths[:skp], scene_names.fetch(key),
             rect, scale: scale, perspective: perspective
           )
           viewports[key] = viewport
-          add_view_label(doc, layer, page, rect, title, perspective ? 'KHÔNG THEO TỶ LỆ' : scale_label(scale))
+          add_view_label(
+            doc, layer, page, rect, title,
+            perspective ? 'KHÔNG THEO TỶ LỆ' : scale_label(scale),
+            label_y
+          )
         end
+
+        add_section_markers(doc, layer, page)
 
         dimension_count = 0
         dimension_count += add_plan_dimensions(doc, layer, page)
@@ -205,11 +213,11 @@ module Giaokhoa
         viewport
       end
 
-      def add_view_label(doc, layer, page, rect, title, scale_text)
-        x, y, w, h = rect
+      def add_view_label(doc, layer, page, rect, title, scale_text, label_y)
+        x, _y, w, _h = rect
         text = Layout::FormattedText.new(
           "#{title}\nTỶ LỆ: #{scale_text}",
-          Geom::Bounds2d.new(x, y + h - 0.12, w, 0.42)
+          Geom::Bounds2d.new(x, label_y, w, 0.50)
         )
         style = text.style
         style.font_family = 'Arial'
@@ -220,13 +228,69 @@ module Giaokhoa
         doc.add_entity(text, layer, page)
       end
 
+      def add_sheet_frame(doc, layer, page)
+        add_rectangle(doc, layer, page, [0.14, 0.14, 16.25, 11.40], 0.45)
+        add_line(doc, layer, page, [0.14, 5.55], [16.39, 5.55], 0.30)
+        add_line(doc, layer, page, [5.55, 0.14], [5.55, 5.55], 0.25)
+        add_line(doc, layer, page, [11.64, 0.14], [11.64, 5.55], 0.25)
+        add_line(doc, layer, page, [7.18, 5.55], [7.18, 11.54], 0.25)
+        add_line(doc, layer, page, [10.68, 5.55], [10.68, 11.54], 0.25)
+      end
+
+      def add_rectangle(doc, layer, page, rect, stroke_width)
+        entity = Layout::Rectangle.new(Geom::Bounds2d.new(*rect))
+        style = entity.style
+        style.stroke_width = stroke_width
+        style.solid_filled = false
+        style.pattern_filled = false
+        entity.style = style
+        doc.add_entity(entity, layer, page)
+        entity
+      end
+
+      def add_line(doc, layer, page, p1, p2, stroke_width = 0.30)
+        entity = Layout::Path.new(Geom::Point2d.new(*p1), Geom::Point2d.new(*p2))
+        style = entity.style
+        style.stroke_width = stroke_width
+        entity.style = style
+        doc.add_entity(entity, layer, page)
+        entity
+      end
+
+      def add_plain_text(doc, layer, page, value, x, y, width = 0.35, height = 0.25, font_size = 7.0, bold = true)
+        text = Layout::FormattedText.new(value, Geom::Bounds2d.new(x, y, width, height))
+        style = text.style
+        style.font_family = 'Arial'
+        style.font_size = font_size
+        style.text_bold = bold
+        style.text_alignment = Layout::Style::ALIGN_CENTER
+        text.style = style
+        doc.add_entity(text, layer, page)
+        text
+      end
+
+      def add_section_markers(doc, layer, page)
+        # Plan: A-A longitudinal marker and B-B transverse marker.
+        add_line(doc, layer, page, [3.45, 0.88], [3.45, 3.55], 0.30)
+        add_plain_text(doc, layer, page, 'A', 3.28, 0.66)
+        add_plain_text(doc, layer, page, 'A', 3.28, 3.55)
+        add_line(doc, layer, page, [0.72, 2.20], [5.10, 2.20], 0.30)
+        add_plain_text(doc, layer, page, 'B', 0.47, 2.06)
+        add_plain_text(doc, layer, page, 'B', 5.07, 2.06)
+
+        # Front: show the location of section A-A through the cabinet.
+        add_line(doc, layer, page, [8.56, 0.78], [8.56, 3.72], 0.30)
+        add_plain_text(doc, layer, page, 'A', 8.39, 0.58)
+        add_plain_text(doc, layer, page, 'A', 8.39, 3.72)
+      end
+
       def scale_label(scale)
         denominator = (1.0 / scale).round(2)
         value = denominator.to_i == denominator ? denominator.to_i : denominator
         "1:#{value}"
       end
 
-      def add_dimension(doc, layer, page, p1, p2, height, label, alignment)
+      def add_dimension(doc, layer, page, p1, p2, height, label, alignment, text_pos: nil, font_size: 7.0)
         dim = Layout::LinearDimension.new(
           Geom::Point2d.new(*p1),
           Geom::Point2d.new(*p2),
@@ -234,19 +298,22 @@ module Giaokhoa
           alignment
         )
         dim.custom_text = true
-        midpoint = Geom::Point2d.new((p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0)
+        position = text_pos || [(p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0]
         text = Layout::FormattedText.new(
           label,
-          midpoint,
+          Geom::Point2d.new(*position),
           Layout::FormattedText::ANCHOR_TYPE_CENTER_CENTER
         )
         text_style = text.style
         text_style.font_family = 'Arial'
-        text_style.font_size = 7.5
+        text_style.font_size = font_size
         text.style = text_style
         dim.text = text
         style = dim.style
-        style.stroke_width = 0.5
+        style.stroke_width = 0.35
+        style.suppress_dimension_units = true
+        style.start_arrow_type = Layout::Style::ARROW_SLASH_RIGHT
+        style.end_arrow_type = Layout::Style::ARROW_SLASH_LEFT
         dim.style = style
         doc.add_entity(dim, layer, page)
         1
