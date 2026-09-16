@@ -21,7 +21,6 @@ module Giaokhoa
           'section_plane.create',
           'scene.create',
           'model.file.save_copy',
-          'layout.a3_sheet.create',
           'layout.document.create',
           'layout.viewport.add',
           'layout.dimension.add',
@@ -92,8 +91,6 @@ module Giaokhoa
             @mutation_engine.create_scene(payload)
           when 'model.file.save_copy'
             @mutation_engine.save_model_copy(payload)
-          when 'layout.a3_sheet.create'
-            @mutation_engine.create_layout_a3(payload)
           when 'layout.document.create'
             @mutation_engine.create_layout_document(payload)
           when 'layout.viewport.add'
