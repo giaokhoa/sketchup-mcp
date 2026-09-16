@@ -13,32 +13,43 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.document.create',
           payload,
-          %w[mutation layout_path page_width_mm page_height_mm],
+          %w[mutation layout_path template_path page_width_mm page_height_mm],
           'SketchUp MCP: Create LayOut Document'
         )
         return result if result
 
         path = payload['layout_path']
+        template_path = payload['template_path'].to_s.strip
         width = finite_number(payload['page_width_mm'])
         height = finite_number(payload['page_height_mm'])
         return invalid('layout_path must end in .layout') unless path.is_a?(String) && path.downcase.end_with?('.layout')
-        return invalid('page_width_mm and page_height_mm must be positive') unless width&.positive? && height&.positive?
         return error('LAYOUT_FILE_EXISTS', 'layout_path already exists') if File.exist?(path)
+
+        if template_path.empty?
+          return invalid('page_width_mm and page_height_mm must be positive') unless width&.positive? && height&.positive?
+        else
+          return invalid('template_path must end in .layout') unless template_path.downcase.end_with?('.layout')
+          return error('LAYOUT_TEMPLATE_NOT_FOUND', 'template_path does not exist') unless File.exist?(template_path)
+          return invalid('page dimensions must be 0 when template_path is provided') unless width == 0.0 && height == 0.0
+        end
 
         perform_layout_file_operation(context, 'layout.document.create') do
           FileUtils.mkdir_p(File.dirname(path))
-          doc = Layout::Document.new
-          doc.page_info.width = mm_to_inches(width)
-          doc.page_info.height = mm_to_inches(height)
-          doc.units = Layout::Document::DECIMAL_MILLIMETERS
+          doc = template_path.empty? ? Layout::Document.new : Layout::Document.new(template_path)
+          if template_path.empty?
+            doc.page_info.width = mm_to_inches(width)
+            doc.page_info.height = mm_to_inches(height)
+            doc.units = Layout::Document::DECIMAL_MILLIMETERS
+          end
           doc.save(path)
           raise OperationFailure, 'LayOut document save failed' unless File.exist?(path)
 
           {
             'layout_path' => path,
-            'page_width_mm' => width,
-            'page_height_mm' => height,
-            'page_count' => doc.pages.length
+            'page_width_mm' => inches_to_layout_mm(doc.page_info.width),
+            'page_height_mm' => inches_to_layout_mm(doc.page_info.height),
+            'page_count' => doc.pages.length,
+            'template_path' => template_path.empty? ? nil : template_path
           }
         end
       end
