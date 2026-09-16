@@ -24,7 +24,6 @@ const (
 	ErrorMaterialNameConflict           = "MATERIAL_NAME_CONFLICT"
 	ErrorAssemblyParentMismatch          = "ASSEMBLY_PARENT_MISMATCH"
 	ErrorAssemblySharedDefinition        = "ASSEMBLY_SHARED_DEFINITION"
-	ErrorLayoutQAFailed                  = "LAYOUT_QA_FAILED"
 )
 
 type ToolError struct {
