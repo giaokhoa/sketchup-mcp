@@ -62,7 +62,6 @@ jobs:
       - name: Verify byte reproducibility
         run: |
           cmp dist-a/sketchup-mcp-windows-amd64.exe dist-b/sketchup-mcp-windows-amd64.exe
-          cmp dist-a/layout-worker.exe dist-b/layout-worker.exe
           cmp dist-a/giaokhoa_sketchup_mcp.rbz dist-b/giaokhoa_sketchup_mcp.rbz
           cmp dist-a/SHA256SUMS.txt dist-b/SHA256SUMS.txt
 
@@ -97,7 +96,6 @@ jobs:
         run: |
           mkdir dist
           cp dist-a/sketchup-mcp-windows-amd64.exe dist/
-          cp dist-a/layout-worker.exe dist/
           cp dist-a/giaokhoa_sketchup_mcp.rbz dist/
           cp dist-a/SHA256SUMS.txt dist/
 
