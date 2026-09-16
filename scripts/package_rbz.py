@@ -16,7 +16,7 @@ FIXED_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 def archive_info(name: str, *, directory: bool = False) -> zipfile.ZipInfo:
     info = zipfile.ZipInfo(name, FIXED_TIMESTAMP)
     info.create_system = 3
-    info.compress_type = zipfile.ZIP_DEFLATED
+    info.compress_type = zipfile.ZIP_STORED
     info.external_attr = ((0o40755 if directory else 0o100644) << 16)
     if directory:
         info.external_attr |= 0x10
@@ -33,7 +33,7 @@ def build(repo_root: Path, output: Path) -> None:
     files = [loader] + sorted(path for path in support.rglob("*") if path.is_file())
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
         archive.writestr(archive_info(f"{SUPPORT_NAME}/", directory=True), b"")
         archive.writestr(archive_info(LOADER_NAME), loader.read_bytes())
         for path in files[1:]:
