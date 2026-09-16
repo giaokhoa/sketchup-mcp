@@ -121,6 +121,7 @@ module Giaokhoa
         end
 
         add_section_markers(doc, layer, page)
+        add_notes(doc, layer, page)
 
         dimension_count = 0
         dimension_count += add_plan_dimensions(doc, layer, page)
@@ -298,7 +299,11 @@ module Giaokhoa
           alignment
         )
         dim.custom_text = true
-        position = text_pos || [(p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0]
+        position = text_pos || if alignment == Layout::LinearDimension::DIMENSION_LINE_VERTICAL
+                                 [p1[0] + height, (p1[1] + p2[1]) / 2.0]
+                               else
+                                 [(p1[0] + p2[0]) / 2.0, p1[1] + height]
+                               end
         text = Layout::FormattedText.new(
           label,
           Geom::Point2d.new(*position),
@@ -321,70 +326,183 @@ module Giaokhoa
 
       def add_plan_dimensions(doc, layer, page)
         count = 0
-        count += add_dimension(doc, layer, page, [0.75, 1.10], [5.10, 1.10], -0.32, '1800', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [0.75, 1.10], [2.925, 1.10], -0.62, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [2.925, 1.10], [5.10, 1.10], -0.62, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [0.75, 1.10], [0.75, 2.55], -0.38, '450', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
+        x0 = 0.88
+        x1 = 4.92
+        y0 = 1.18
+        mid = (x0 + x1) / 2.0
+        count += add_dimension(doc, layer, page, [x0, y0], [x1, y0], -0.62, '1800', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        count += add_dimension(doc, layer, page, [x0, y0], [mid, y0], -0.34, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        count += add_dimension(doc, layer, page, [mid, y0], [x1, y0], -0.34, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        count += add_dimension(doc, layer, page, [0.88, 1.48], [0.88, 3.18], -0.38, '450', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
         count
       end
 
       def add_front_dimensions(doc, layer, page)
         count = 0
-        x0 = 5.92
-        x1 = 11.22
-        y0 = 1.05
-        count += add_dimension(doc, layer, page, [x0, y0], [x1, y0], -0.33, '1800', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        x0 = 6.02
+        x1 = 11.10
+        y_top = 1.18
+        mid = (x0 + x1) / 2.0
 
-        spans = [20, 438.5, 2, 438.5, 2, 438.5, 2, 438.5, 20]
-        total = spans.sum.to_f
+        # Row 1: overall + main 900/900 split.
+        count += add_dimension(doc, layer, page, [x0, y_top], [x1, y_top], -0.62, '1800', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        count += add_dimension(doc, layer, page, [x0, y_top], [mid, y_top], -0.34, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        count += add_dimension(doc, layer, page, [mid, y_top], [x1, y_top], -0.34, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+
+        # Row 2: inset-door subdivision, including the actual 2 mm gaps.
+        y_bottom = 3.70
+        spans = [20.0, 438.5, 2.0, 438.5, 2.0, 438.5, 2.0, 438.5, 20.0]
+        total = spans.sum
         cursor = x0
-        spans.each do |span|
+        spans.each_with_index do |span, index|
           nxt = cursor + (x1 - x0) * (span / total)
-          count += add_dimension(doc, layer, page, [cursor, y0], [nxt, y0], -0.68, span.to_s.sub('.0', ''), Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+          tiny = span <= 2.0
+          text_pos = tiny ? [(cursor + nxt) / 2.0, 4.28 + ((index / 2) % 2) * 0.10] : nil
+          count += add_dimension(
+            doc, layer, page, [cursor, y_bottom], [nxt, y_bottom], 0.34,
+            span == 438.5 ? '438.5' : span.to_i.to_s,
+            Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL,
+            text_pos: text_pos,
+            font_size: tiny ? 6.0 : 6.7
+          )
           cursor = nxt
         end
 
-        count += add_dimension(doc, layer, page, [5.86, 1.15], [5.86, 3.75], -0.32, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [5.86, 1.15], [5.86, 1.88], -0.62, '250', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [5.86, 1.88], [5.86, 3.10], -0.62, '398', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [5.86, 3.10], [5.86, 3.75], -0.62, '252', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
+        # Overall vertical dimension on the left.
+        count += add_dimension(doc, layer, page, [5.98, 1.22], [5.98, 3.78], -0.27, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
+
+        # Detailed vertical construction chain on the right:
+        # 250 leg + 18 bottom + 2 reveal + 398 door + 22 drawer zone +
+        # 178 drawer front + 2 reveal + 30 top = 900.
+        z_spans = [250.0, 18.0, 2.0, 398.0, 22.0, 178.0, 2.0, 30.0]
+        y1 = 3.78
+        full = 3.78 - 1.22
+        consumed = 0.0
+        z_spans.each_with_index do |span, index|
+          y2 = y1 - full * (span / 900.0)
+          tiny = span <= 2.0
+          text_pos = tiny ? [11.46 + (index.even? ? 0.0 : 0.10), (y1 + y2) / 2.0] : nil
+          count += add_dimension(
+            doc, layer, page, [11.16, y1], [11.16, y2], 0.25,
+            span.to_i.to_s,
+            Layout::LinearDimension::DIMENSION_LINE_VERTICAL,
+            text_pos: text_pos,
+            font_size: tiny ? 6.0 : 6.5
+          )
+          consumed += span
+          y1 = y2
+        end
         count
       end
 
       def add_section_a_dimensions(doc, layer, page)
         count = 0
-        count += add_dimension(doc, layer, page, [12.05, 1.12], [15.72, 1.12], -0.30, '450', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [12.05, 1.12], [12.22, 1.12], -0.60, '18', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [12.22, 1.12], [15.53, 1.12], -0.60, '414', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [15.53, 1.12], [15.72, 1.12], -0.60, '18', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [12.00, 1.18], [12.00, 3.72], -0.32, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [15.82, 2.72], [15.82, 3.35], 0.34, '12', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
+        x0 = 12.18
+        x1 = 15.76
+        y0 = 1.18
+        count += add_dimension(doc, layer, page, [x0, y0], [x1, y0], -0.58, '450', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+
+        spans = [18.0, 406.0, 6.0, 20.0]
+        total = spans.sum
+        cursor = x0
+        spans.each do |span|
+          nxt = cursor + (x1 - x0) * (span / total)
+          text_pos = span <= 20.0 ? [(cursor + nxt) / 2.0, 1.00] : nil
+          count += add_dimension(
+            doc, layer, page, [cursor, y0], [nxt, y0], -0.30,
+            span.to_i.to_s,
+            Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL,
+            text_pos: text_pos,
+            font_size: span <= 20.0 ? 6.1 : 6.7
+          )
+          cursor = nxt
+        end
+
+        count += add_dimension(doc, layer, page, [12.10, 1.26], [12.10, 3.78], -0.25, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
+        count += add_dimension(doc, layer, page, [15.80, 1.44], [15.80, 1.86], 0.22, '30', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.5)
+        count += add_dimension(doc, layer, page, [15.80, 1.98], [15.80, 2.24], 0.22, '12', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.5)
+        count += add_dimension(doc, layer, page, [15.80, 2.70], [15.80, 2.96], 0.22, '18', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.5)
         count
       end
 
       def add_section_b_dimensions(doc, layer, page)
         count = 0
-        x0 = 0.78
-        x1 = 7.18
-        y0 = 6.52
-        count += add_dimension(doc, layer, page, [x0, y0], [x1, y0], -0.34, '1800', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [x0, y0], [(x0 + x1) / 2.0, y0], -0.68, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [(x0 + x1) / 2.0, y0], [x1, y0], -0.68, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [0.70, 6.65], [0.70, 10.18], -0.34, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [7.28, 8.82], [7.28, 9.22], 0.34, '12', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [7.28, 7.50], [7.28, 7.90], 0.34, '18', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
+        x0 = 0.86
+        x1 = 6.62
+        y0 = 6.55
+        mid = (x0 + x1) / 2.0
+        count += add_dimension(doc, layer, page, [x0, y0], [x1, y0], -0.60, '1800', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        count += add_dimension(doc, layer, page, [x0, y0], [mid, y0], -0.32, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        count += add_dimension(doc, layer, page, [mid, y0], [x1, y0], -0.32, '900', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+
+        count += add_dimension(doc, layer, page, [0.82, 6.72], [0.82, 9.78], -0.30, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
+
+        y_bottom = 9.72
+        spans = [20.0, 438.5, 2.0, 438.5, 2.0, 438.5, 2.0, 438.5, 20.0]
+        cursor = x0
+        spans.each_with_index do |span, index|
+          nxt = cursor + (x1 - x0) * (span / 1800.0)
+          tiny = span <= 2.0
+          text_pos = tiny ? [(cursor + nxt) / 2.0, 10.28 + ((index / 2) % 2) * 0.08] : nil
+          count += add_dimension(
+            doc, layer, page, [cursor, y_bottom], [nxt, y_bottom], 0.30,
+            span == 438.5 ? '438.5' : span.to_i.to_s,
+            Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL,
+            text_pos: text_pos,
+            font_size: tiny ? 6.0 : 6.5
+          )
+          cursor = nxt
+        end
+
+        count += add_dimension(doc, layer, page, [6.68, 6.85], [6.68, 7.22], 0.22, '12', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.4)
+        count += add_dimension(doc, layer, page, [6.68, 8.15], [6.68, 8.45], 0.22, '18', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.4)
         count
       end
 
       def add_side_dimensions(doc, layer, page)
         count = 0
-        count += add_dimension(doc, layer, page, [8.05, 6.55], [10.20, 6.55], -0.32, '450', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [7.98, 6.68], [7.98, 10.12], -0.32, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [8.05, 6.55], [8.23, 6.55], -0.64, '18', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [8.23, 6.55], [10.02, 6.55], -0.64, '414', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
-        count += add_dimension(doc, layer, page, [10.02, 6.55], [10.20, 6.55], -0.64, '18', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+        x0 = 7.72
+        x1 = 10.12
+        y0 = 6.55
+        count += add_dimension(doc, layer, page, [x0, y0], [x1, y0], -0.58, '450', Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL)
+
+        spans = [18.0, 406.0, 6.0, 20.0]
+        cursor = x0
+        spans.each do |span|
+          nxt = cursor + (x1 - x0) * (span / 450.0)
+          text_pos = span <= 20.0 ? [(cursor + nxt) / 2.0, 6.34] : nil
+          count += add_dimension(
+            doc, layer, page, [cursor, y0], [nxt, y0], -0.30,
+            span.to_i.to_s,
+            Layout::LinearDimension::DIMENSION_LINE_HORIZONTAL,
+            text_pos: text_pos,
+            font_size: span <= 20.0 ? 6.0 : 6.5
+          )
+          cursor = nxt
+        end
+
+        count += add_dimension(doc, layer, page, [7.63, 6.72], [7.63, 9.76], -0.25, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
         count
       end
+
+      def add_notes(doc, layer, page)
+        lines = [
+          'GHI CHÚ:',
+          '- Kích thước tính bằng millimet (mm).',
+          '- Cánh dưới lọt lòng; khe giữa các cánh: 2 mm.',
+          '- Ván hộp ngăn kéo: 12 mm; đợt di động: 18 mm.'
+        ]
+        text = Layout::FormattedText.new(
+          lines.join("\n"),
+          Geom::Bounds2d.new(12.15, 10.92, 3.75, 0.48)
+        )
+        style = text.style
+        style.font_family = 'Arial'
+        style.font_size = 6.2
+        text.style = style
+        doc.add_entity(text, layer, page)
+      end
+
     end
   end
 end
