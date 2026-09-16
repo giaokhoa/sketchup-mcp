@@ -1,3 +1,5 @@
+[Reading 444 lines from start (total: 444 lines, 0 remaining)]
+
 package model
 
 import (
@@ -85,8 +87,12 @@ type LayoutDocumentCreateInput struct {
 }
 
 func (i LayoutDocumentCreateInput) Validate() error {
-	if err := i.MutationEnvelope.Validate(); err != nil { return err }
-	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := validateLayoutPath(i.LayoutPath); err != nil {
+		return err
+	}
 	if !finite(i.PageWidthMM) || !finite(i.PageHeightMM) || i.PageWidthMM <= 0 || i.PageHeightMM <= 0 {
 		return errors.New("page dimensions must be positive finite millimeter values")
 	}
@@ -95,206 +101,278 @@ func (i LayoutDocumentCreateInput) Validate() error {
 
 func (i LayoutDocumentCreateInput) BridgePayload() any {
 	return struct {
-		Mutation BridgeMutation `json:"mutation"`
-		LayoutPath string `json:"layout_path"`
-		PageWidthMM float64 `json:"page_width_mm"`
-		PageHeightMM float64 `json:"page_height_mm"`
+		Mutation     BridgeMutation `json:"mutation"`
+		LayoutPath   string         `json:"layout_path"`
+		PageWidthMM  float64        `json:"page_width_mm"`
+		PageHeightMM float64        `json:"page_height_mm"`
 	}{i.bridgeMutation("SketchUp MCP: Create LayOut Document"), i.LayoutPath, i.PageWidthMM, i.PageHeightMM}
 }
 
 type LayoutViewportAddInput struct {
 	MutationEnvelope
-	LayoutPath string `json:"layout_path"`
-	SKPPath string `json:"skp_path" jsonschema:"absolute saved SketchUp model path"`
-	PageIndex int `json:"page_index"`
-	BoundsMM LayoutRectMM `json:"bounds_mm"`
-	SceneName string `json:"scene_name,omitempty" jsonschema:"SketchUp scene name; use either scene_name or standard_view"`
-	StandardView string `json:"standard_view,omitempty" jsonschema:"top front back left right bottom iso; use either standard_view or scene_name"`
-	Perspective bool `json:"perspective"`
-	ScaleDenominator float64 `json:"scale_denominator" jsonschema:"orthographic drawing scale denominator such as 10 for 1:10; use 0 for perspective"`
-	RenderMode string `json:"render_mode" jsonschema:"raster hybrid or vector"`
+	LayoutPath       string       `json:"layout_path"`
+	SKPPath          string       `json:"skp_path" jsonschema:"absolute saved SketchUp model path"`
+	PageIndex        int          `json:"page_index"`
+	BoundsMM         LayoutRectMM `json:"bounds_mm"`
+	SceneName        string       `json:"scene_name,omitempty" jsonschema:"SketchUp scene name; use either scene_name or standard_view"`
+	StandardView     string       `json:"standard_view,omitempty" jsonschema:"top front back left right bottom iso; use either standard_view or scene_name"`
+	Perspective      bool         `json:"perspective"`
+	ScaleDenominator float64      `json:"scale_denominator" jsonschema:"orthographic drawing scale denominator such as 10 for 1:10; use 0 for perspective"`
+	RenderMode       string       `json:"render_mode" jsonschema:"raster hybrid or vector"`
 }
 
 func (i LayoutViewportAddInput) Validate() error {
-	if err := i.MutationEnvelope.Validate(); err != nil { return err }
-	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
-	if strings.TrimSpace(i.SKPPath) == "" || !filepath.IsAbs(i.SKPPath) { return errors.New("skp_path must be absolute") }
-	if i.PageIndex < 0 { return errors.New("page_index must be non-negative") }
-	if err := i.BoundsMM.Validate(); err != nil { return err }
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := validateLayoutPath(i.LayoutPath); err != nil {
+		return err
+	}
+	if strings.TrimSpace(i.SKPPath) == "" || !filepath.IsAbs(i.SKPPath) {
+		return errors.New("skp_path must be absolute")
+	}
+	if i.PageIndex < 0 {
+		return errors.New("page_index must be non-negative")
+	}
+	if err := i.BoundsMM.Validate(); err != nil {
+		return err
+	}
 	hasScene := strings.TrimSpace(i.SceneName) != ""
 	hasView := strings.TrimSpace(i.StandardView) != ""
-	if hasScene == hasView { return errors.New("provide exactly one of scene_name or standard_view") }
+	if hasScene == hasView {
+		return errors.New("provide exactly one of scene_name or standard_view")
+	}
 	if hasView {
 		switch strings.ToLower(i.StandardView) {
 		case "top", "bottom", "front", "back", "left", "right", "iso":
-		default: return errors.New("standard_view must be top, bottom, front, back, left, right, or iso")
+		default:
+			return errors.New("standard_view must be top, bottom, front, back, left, right, or iso")
 		}
 	}
 	if i.Perspective {
-		if i.ScaleDenominator != 0 { return errors.New("scale_denominator must be 0 for perspective viewports") }
+		if i.ScaleDenominator != 0 {
+			return errors.New("scale_denominator must be 0 for perspective viewports")
+		}
 	} else if !finite(i.ScaleDenominator) || i.ScaleDenominator <= 0 {
 		return errors.New("scale_denominator must be greater than zero for orthographic viewports")
 	}
 	switch strings.ToLower(i.RenderMode) {
 	case "raster", "hybrid", "vector":
-	default: return errors.New("render_mode must be raster, hybrid, or vector")
+	default:
+		return errors.New("render_mode must be raster, hybrid, or vector")
 	}
 	return nil
 }
 
 func (i LayoutViewportAddInput) BridgePayload() any {
 	return struct {
-		Mutation BridgeMutation `json:"mutation"`
-		LayoutPath string `json:"layout_path"`
-		SKPPath string `json:"skp_path"`
-		PageIndex int `json:"page_index"`
-		BoundsMM LayoutRectMM `json:"bounds_mm"`
-		SceneName string `json:"scene_name"`
-		StandardView string `json:"standard_view"`
-		Perspective bool `json:"perspective"`
-		ScaleDenominator float64 `json:"scale_denominator"`
-		RenderMode string `json:"render_mode"`
+		Mutation         BridgeMutation `json:"mutation"`
+		LayoutPath       string         `json:"layout_path"`
+		SKPPath          string         `json:"skp_path"`
+		PageIndex        int            `json:"page_index"`
+		BoundsMM         LayoutRectMM   `json:"bounds_mm"`
+		SceneName        string         `json:"scene_name"`
+		StandardView     string         `json:"standard_view"`
+		Perspective      bool           `json:"perspective"`
+		ScaleDenominator float64        `json:"scale_denominator"`
+		RenderMode       string         `json:"render_mode"`
 	}{i.bridgeMutation("SketchUp MCP: Add LayOut Viewport"), i.LayoutPath, i.SKPPath, i.PageIndex, i.BoundsMM, i.SceneName, i.StandardView, i.Perspective, i.ScaleDenominator, i.RenderMode}
 }
 
 type LayoutDimensionAddInput struct {
 	MutationEnvelope
-	LayoutPath string `json:"layout_path"`
-	PageIndex int `json:"page_index"`
-	ViewportRef LayoutEntityRef `json:"viewport_ref"`
-	StartPointMM LayoutPoint3MM `json:"start_point_mm"`
-	EndPointMM LayoutPoint3MM `json:"end_point_mm"`
-	StartPIDPath string `json:"start_pid_path"`
-	EndPIDPath string `json:"end_pid_path"`
-	OffsetMM float64 `json:"offset_mm" jsonschema:"signed paper-space distance from measured points to the dimension line in millimeters"`
-	Alignment string `json:"alignment" jsonschema:"auto horizontal vertical or aligned"`
+	LayoutPath   string          `json:"layout_path"`
+	PageIndex    int             `json:"page_index"`
+	ViewportRef  LayoutEntityRef `json:"viewport_ref"`
+	StartPointMM LayoutPoint3MM  `json:"start_point_mm"`
+	EndPointMM   LayoutPoint3MM  `json:"end_point_mm"`
+	StartPIDPath string          `json:"start_pid_path"`
+	EndPIDPath   string          `json:"end_pid_path"`
+	OffsetMM     float64         `json:"offset_mm" jsonschema:"signed paper-space distance from measured points to the dimension line in millimeters"`
+	Alignment    string          `json:"alignment" jsonschema:"auto horizontal vertical or aligned"`
 }
 
 func (i LayoutDimensionAddInput) Validate() error {
-	if err := i.MutationEnvelope.Validate(); err != nil { return err }
-	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
-	if i.PageIndex < 0 { return errors.New("page_index must be non-negative") }
-	if err := i.ViewportRef.Validate(); err != nil { return err }
-	if i.ViewportRef.LayoutPath != i.LayoutPath || i.ViewportRef.PageIndex != i.PageIndex { return errors.New("viewport_ref must target the same layout_path and page_index") }
-	if err := i.StartPointMM.Validate(); err != nil { return err }
-	if err := i.EndPointMM.Validate(); err != nil { return err }
-	if strings.TrimSpace(i.StartPIDPath) == "" || strings.TrimSpace(i.EndPIDPath) == "" { return errors.New("start_pid_path and end_pid_path are required") }
-	if !finite(i.OffsetMM) || i.OffsetMM == 0 { return errors.New("offset_mm must be finite and non-zero") }
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := validateLayoutPath(i.LayoutPath); err != nil {
+		return err
+	}
+	if i.PageIndex < 0 {
+		return errors.New("page_index must be non-negative")
+	}
+	if err := i.ViewportRef.Validate(); err != nil {
+		return err
+	}
+	if i.ViewportRef.LayoutPath != i.LayoutPath || i.ViewportRef.PageIndex != i.PageIndex {
+		return errors.New("viewport_ref must target the same layout_path and page_index")
+	}
+	if err := i.StartPointMM.Validate(); err != nil {
+		return err
+	}
+	if err := i.EndPointMM.Validate(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(i.StartPIDPath) == "" || strings.TrimSpace(i.EndPIDPath) == "" {
+		return errors.New("start_pid_path and end_pid_path are required")
+	}
+	if !finite(i.OffsetMM) || i.OffsetMM == 0 {
+		return errors.New("offset_mm must be finite and non-zero")
+	}
 	switch strings.ToLower(i.Alignment) {
 	case "auto", "horizontal", "vertical", "aligned":
-	default: return errors.New("alignment must be auto, horizontal, vertical, or aligned")
+	default:
+		return errors.New("alignment must be auto, horizontal, vertical, or aligned")
 	}
 	return nil
 }
 
 func (i LayoutDimensionAddInput) BridgePayload() any {
 	return struct {
-		Mutation BridgeMutation `json:"mutation"`
-		LayoutPath string `json:"layout_path"`
-		PageIndex int `json:"page_index"`
-		ViewportRef LayoutEntityRef `json:"viewport_ref"`
-		StartPointMM LayoutPoint3MM `json:"start_point_mm"`
-		EndPointMM LayoutPoint3MM `json:"end_point_mm"`
-		StartPIDPath string `json:"start_pid_path"`
-		EndPIDPath string `json:"end_pid_path"`
-		OffsetMM float64 `json:"offset_mm"`
-		Alignment string `json:"alignment"`
+		Mutation     BridgeMutation  `json:"mutation"`
+		LayoutPath   string          `json:"layout_path"`
+		PageIndex    int             `json:"page_index"`
+		ViewportRef  LayoutEntityRef `json:"viewport_ref"`
+		StartPointMM LayoutPoint3MM  `json:"start_point_mm"`
+		EndPointMM   LayoutPoint3MM  `json:"end_point_mm"`
+		StartPIDPath string          `json:"start_pid_path"`
+		EndPIDPath   string          `json:"end_pid_path"`
+		OffsetMM     float64         `json:"offset_mm"`
+		Alignment    string          `json:"alignment"`
 	}{i.bridgeMutation("SketchUp MCP: Add LayOut Dimension"), i.LayoutPath, i.PageIndex, i.ViewportRef, i.StartPointMM, i.EndPointMM, i.StartPIDPath, i.EndPIDPath, i.OffsetMM, i.Alignment}
 }
 
 type LayoutTextAddInput struct {
 	MutationEnvelope
-	LayoutPath string `json:"layout_path"`
-	PageIndex int `json:"page_index"`
-	BoundsMM LayoutRectMM `json:"bounds_mm"`
-	Text string `json:"text"`
-	FontSizePT float64 `json:"font_size_pt"`
-	Bold bool `json:"bold"`
-	Alignment string `json:"alignment" jsonschema:"left center or right"`
+	LayoutPath string       `json:"layout_path"`
+	PageIndex  int          `json:"page_index"`
+	BoundsMM   LayoutRectMM `json:"bounds_mm"`
+	Text       string       `json:"text"`
+	FontSizePT float64      `json:"font_size_pt"`
+	Bold       bool         `json:"bold"`
+	Alignment  string       `json:"alignment" jsonschema:"left center or right"`
 }
 
 func (i LayoutTextAddInput) Validate() error {
-	if err := i.MutationEnvelope.Validate(); err != nil { return err }
-	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
-	if i.PageIndex < 0 { return errors.New("page_index must be non-negative") }
-	if err := i.BoundsMM.Validate(); err != nil { return err }
-	if strings.TrimSpace(i.Text) == "" { return errors.New("text is required") }
-	if !finite(i.FontSizePT) || i.FontSizePT <= 0 { return errors.New("font_size_pt must be greater than zero") }
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := validateLayoutPath(i.LayoutPath); err != nil {
+		return err
+	}
+	if i.PageIndex < 0 {
+		return errors.New("page_index must be non-negative")
+	}
+	if err := i.BoundsMM.Validate(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(i.Text) == "" {
+		return errors.New("text is required")
+	}
+	if !finite(i.FontSizePT) || i.FontSizePT <= 0 {
+		return errors.New("font_size_pt must be greater than zero")
+	}
 	switch strings.ToLower(i.Alignment) {
 	case "left", "center", "right":
-	default: return errors.New("alignment must be left, center, or right")
+	default:
+		return errors.New("alignment must be left, center, or right")
 	}
 	return nil
 }
 
 func (i LayoutTextAddInput) BridgePayload() any {
 	return struct {
-		Mutation BridgeMutation `json:"mutation"`
-		LayoutPath string `json:"layout_path"`
-		PageIndex int `json:"page_index"`
-		BoundsMM LayoutRectMM `json:"bounds_mm"`
-		Text string `json:"text"`
-		FontSizePT float64 `json:"font_size_pt"`
-		Bold bool `json:"bold"`
-		Alignment string `json:"alignment"`
+		Mutation   BridgeMutation `json:"mutation"`
+		LayoutPath string         `json:"layout_path"`
+		PageIndex  int            `json:"page_index"`
+		BoundsMM   LayoutRectMM   `json:"bounds_mm"`
+		Text       string         `json:"text"`
+		FontSizePT float64        `json:"font_size_pt"`
+		Bold       bool           `json:"bold"`
+		Alignment  string         `json:"alignment"`
 	}{i.bridgeMutation("SketchUp MCP: Add LayOut Text"), i.LayoutPath, i.PageIndex, i.BoundsMM, i.Text, i.FontSizePT, i.Bold, i.Alignment}
 }
 
 type LayoutLineAddInput struct {
 	MutationEnvelope
-	LayoutPath string `json:"layout_path"`
-	PageIndex int `json:"page_index"`
-	StartMM LayoutPoint2MM `json:"start_mm"`
-	EndMM LayoutPoint2MM `json:"end_mm"`
-	StrokeWidth float64 `json:"stroke_width"`
+	LayoutPath  string         `json:"layout_path"`
+	PageIndex   int            `json:"page_index"`
+	StartMM     LayoutPoint2MM `json:"start_mm"`
+	EndMM       LayoutPoint2MM `json:"end_mm"`
+	StrokeWidth float64        `json:"stroke_width"`
 }
 
 func (i LayoutLineAddInput) Validate() error {
-	if err := i.MutationEnvelope.Validate(); err != nil { return err }
-	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
-	if i.PageIndex < 0 { return errors.New("page_index must be non-negative") }
-	if err := i.StartMM.Validate(); err != nil { return err }
-	if err := i.EndMM.Validate(); err != nil { return err }
-	if i.StartMM == i.EndMM { return errors.New("line start and end must differ") }
-	if !finite(i.StrokeWidth) || i.StrokeWidth <= 0 { return errors.New("stroke_width must be greater than zero") }
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := validateLayoutPath(i.LayoutPath); err != nil {
+		return err
+	}
+	if i.PageIndex < 0 {
+		return errors.New("page_index must be non-negative")
+	}
+	if err := i.StartMM.Validate(); err != nil {
+		return err
+	}
+	if err := i.EndMM.Validate(); err != nil {
+		return err
+	}
+	if i.StartMM == i.EndMM {
+		return errors.New("line start and end must differ")
+	}
+	if !finite(i.StrokeWidth) || i.StrokeWidth <= 0 {
+		return errors.New("stroke_width must be greater than zero")
+	}
 	return nil
 }
 
 func (i LayoutLineAddInput) BridgePayload() any {
 	return struct {
-		Mutation BridgeMutation `json:"mutation"`
-		LayoutPath string `json:"layout_path"`
-		PageIndex int `json:"page_index"`
-		StartMM LayoutPoint2MM `json:"start_mm"`
-		EndMM LayoutPoint2MM `json:"end_mm"`
-		StrokeWidth float64 `json:"stroke_width"`
+		Mutation    BridgeMutation `json:"mutation"`
+		LayoutPath  string         `json:"layout_path"`
+		PageIndex   int            `json:"page_index"`
+		StartMM     LayoutPoint2MM `json:"start_mm"`
+		EndMM       LayoutPoint2MM `json:"end_mm"`
+		StrokeWidth float64        `json:"stroke_width"`
 	}{i.bridgeMutation("SketchUp MCP: Add LayOut Line"), i.LayoutPath, i.PageIndex, i.StartMM, i.EndMM, i.StrokeWidth}
 }
 
 type LayoutRectangleAddInput struct {
 	MutationEnvelope
-	LayoutPath string `json:"layout_path"`
-	PageIndex int `json:"page_index"`
-	BoundsMM LayoutRectMM `json:"bounds_mm"`
-	StrokeWidth float64 `json:"stroke_width"`
+	LayoutPath  string       `json:"layout_path"`
+	PageIndex   int          `json:"page_index"`
+	BoundsMM    LayoutRectMM `json:"bounds_mm"`
+	StrokeWidth float64      `json:"stroke_width"`
 }
 
 func (i LayoutRectangleAddInput) Validate() error {
-	if err := i.MutationEnvelope.Validate(); err != nil { return err }
-	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
-	if i.PageIndex < 0 { return errors.New("page_index must be non-negative") }
-	if err := i.BoundsMM.Validate(); err != nil { return err }
-	if !finite(i.StrokeWidth) || i.StrokeWidth <= 0 { return errors.New("stroke_width must be greater than zero") }
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := validateLayoutPath(i.LayoutPath); err != nil {
+		return err
+	}
+	if i.PageIndex < 0 {
+		return errors.New("page_index must be non-negative")
+	}
+	if err := i.BoundsMM.Validate(); err != nil {
+		return err
+	}
+	if !finite(i.StrokeWidth) || i.StrokeWidth <= 0 {
+		return errors.New("stroke_width must be greater than zero")
+	}
 	return nil
 }
 
 func (i LayoutRectangleAddInput) BridgePayload() any {
 	return struct {
-		Mutation BridgeMutation `json:"mutation"`
-		LayoutPath string `json:"layout_path"`
-		PageIndex int `json:"page_index"`
-		BoundsMM LayoutRectMM `json:"bounds_mm"`
-		StrokeWidth float64 `json:"stroke_width"`
+		Mutation    BridgeMutation `json:"mutation"`
+		LayoutPath  string         `json:"layout_path"`
+		PageIndex   int            `json:"page_index"`
+		BoundsMM    LayoutRectMM   `json:"bounds_mm"`
+		StrokeWidth float64        `json:"stroke_width"`
 	}{i.bridgeMutation("SketchUp MCP: Add LayOut Rectangle"), i.LayoutPath, i.PageIndex, i.BoundsMM, i.StrokeWidth}
 }
 
@@ -302,18 +380,28 @@ type LayoutExportInput struct {
 	MutationEnvelope
 	LayoutPath string `json:"layout_path"`
 	OutputPath string `json:"output_path" jsonschema:"absolute .pdf .png or .jpg output path"`
-	DPI int `json:"dpi,omitempty" jsonschema:"image export DPI; ignored for PDF"`
+	DPI        int    `json:"dpi,omitempty" jsonschema:"image export DPI; ignored for PDF"`
 }
 
 func (i LayoutExportInput) Validate() error {
-	if err := i.MutationEnvelope.Validate(); err != nil { return err }
-	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
-	if strings.TrimSpace(i.OutputPath) == "" || !filepath.IsAbs(i.OutputPath) { return errors.New("output_path must be absolute") }
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := validateLayoutPath(i.LayoutPath); err != nil {
+		return err
+	}
+	if strings.TrimSpace(i.OutputPath) == "" || !filepath.IsAbs(i.OutputPath) {
+		return errors.New("output_path must be absolute")
+	}
 	switch strings.ToLower(filepath.Ext(i.OutputPath)) {
 	case ".pdf":
-		if i.DPI != 0 { return errors.New("dpi must be 0 for PDF export") }
+		if i.DPI != 0 {
+			return errors.New("dpi must be 0 for PDF export")
+		}
 	case ".png", ".jpg", ".jpeg":
-		if i.DPI <= 0 { return errors.New("dpi must be greater than zero for image export") }
+		if i.DPI <= 0 {
+			return errors.New("dpi must be greater than zero for image export")
+		}
 	default:
 		return errors.New("output_path must end in .pdf, .png, .jpg, or .jpeg")
 	}
@@ -322,37 +410,39 @@ func (i LayoutExportInput) Validate() error {
 
 func (i LayoutExportInput) BridgePayload() any {
 	return struct {
-		Mutation BridgeMutation `json:"mutation"`
-		LayoutPath string `json:"layout_path"`
-		OutputPath string `json:"output_path"`
-		DPI int `json:"dpi"`
+		Mutation   BridgeMutation `json:"mutation"`
+		LayoutPath string         `json:"layout_path"`
+		OutputPath string         `json:"output_path"`
+		DPI        int            `json:"dpi"`
 	}{i.bridgeMutation("SketchUp MCP: Export LayOut Document"), i.LayoutPath, i.OutputPath, i.DPI}
 }
 
 type LayoutFileOutput struct {
-	OperationID string `json:"operation_id,omitempty"`
-	ModelGUID string `json:"model_guid,omitempty"`
-	Revision uint64 `json:"revision"`
-	LayoutPath string `json:"layout_path,omitempty"`
-	Error *ToolError `json:"error,omitempty"`
+	OperationID string     `json:"operation_id,omitempty"`
+	ModelGUID   string     `json:"model_guid,omitempty"`
+	Revision    uint64     `json:"revision"`
+	LayoutPath  string     `json:"layout_path,omitempty"`
+	Error       *ToolError `json:"error,omitempty"`
 }
 
 type LayoutEntityOutput struct {
-	OperationID string `json:"operation_id,omitempty"`
-	ModelGUID string `json:"model_guid,omitempty"`
-	Revision uint64 `json:"revision"`
-	LayoutPath string `json:"layout_path,omitempty"`
-	EntityRef *LayoutEntityRef `json:"entity_ref,omitempty"`
-	Connected bool `json:"connected,omitempty"`
-	Error *ToolError `json:"error,omitempty"`
+	OperationID string           `json:"operation_id,omitempty"`
+	ModelGUID   string           `json:"model_guid,omitempty"`
+	Revision    uint64           `json:"revision"`
+	LayoutPath  string           `json:"layout_path,omitempty"`
+	EntityRef   *LayoutEntityRef `json:"entity_ref,omitempty"`
+	Connected   bool             `json:"connected,omitempty"`
+	Error       *ToolError       `json:"error,omitempty"`
 }
 
 type LayoutExportOutput struct {
-	OperationID string `json:"operation_id,omitempty"`
-	ModelGUID string `json:"model_guid,omitempty"`
-	Revision uint64 `json:"revision"`
-	LayoutPath string `json:"layout_path,omitempty"`
-	OutputPath string `json:"output_path,omitempty"`
-	MIMEType string `json:"mime_type,omitempty"`
-	Error *ToolError `json:"error,omitempty"`
+	OperationID string     `json:"operation_id,omitempty"`
+	ModelGUID   string     `json:"model_guid,omitempty"`
+	Revision    uint64     `json:"revision"`
+	LayoutPath  string     `json:"layout_path,omitempty"`
+	OutputPath  string     `json:"output_path,omitempty"`
+	MIMEType    string     `json:"mime_type,omitempty"`
+	Error       *ToolError `json:"error,omitempty"`
 }
+
+[executed on device: TRANKIMVU (8beafd98-533f-4106-8d11-e085770e63d2)]
