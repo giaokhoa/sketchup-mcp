@@ -83,8 +83,12 @@ module Giaokhoa
         raise "output already exists: #{paths[:skp]}" if File.exist?(paths[:skp])
         raise "output already exists: #{paths[:pdf]}" if @export_pdf && File.exist?(paths[:pdf])
 
-        saved = @model.save_copy(paths[:skp])
-        raise 'SketchUp save_copy failed' unless saved
+        saved = if @model.path.to_s.empty?
+                  @model.save(paths[:skp])
+                else
+                  @model.save_copy(paths[:skp])
+                end
+        raise 'SketchUp model save failed' unless saved
 
         doc = Layout::Document.new
         setup_document(doc)
