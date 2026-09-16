@@ -10,14 +10,17 @@ module Giaokhoa
           'model.summary',
           'selection.get',
           'entity.inspect',
+          'entity.children.list',
           'entity.translate',
           'entity.delete',
           'entity.material.set',
           'entity.name.set',
+          'assembly.create',
           'geometry.create_box',
           'changes.undo'
         ].freeze
         MAX_SELECTION_ENTITIES = 100
+        MAX_CHILD_ENTITIES = 100
         SUPPORTED_ENTITY_TYPES = ['Group', 'ComponentInstance'].freeze
         LENGTH_UNITS = {
           0 => 'inches', 1 => 'feet', 2 => 'millimeters',
@@ -54,6 +57,8 @@ module Giaokhoa
             selection_get
           when 'entity.inspect'
             entity_inspect(payload)
+          when 'entity.children.list'
+            entity_children_list(payload)
           when 'entity.translate'
             @mutation_engine.translate(payload)
           when 'entity.delete'
@@ -62,6 +67,8 @@ module Giaokhoa
             @mutation_engine.set_material(payload)
           when 'entity.name.set'
             @mutation_engine.set_name(payload)
+          when 'assembly.create'
+            @mutation_engine.create_assembly(payload)
           when 'geometry.create_box'
             @mutation_engine.create_box(payload)
           when 'changes.undo'
@@ -199,6 +206,64 @@ module Giaokhoa
             'current_revision' => snapshot.fetch(:revision),
             'revision_mismatch' => payload['revision'] != snapshot.fetch(:revision),
             'entity' => details
+          )
+        end
+
+        def entity_children_list(payload)
+          required = %w[session_id model_guid persistent_id revision]
+          return invalid('EntityRef fields are invalid') unless payload.keys.sort == required.sort
+          return error('SESSION_NOT_FOUND', 'EntityRef session does not match this bridge session') unless payload['session_id'] == @session_id
+          return invalid('persistent_id must be a positive integer') unless payload['persistent_id'].is_a?(Integer) && payload['persistent_id'].positive?
+          return invalid('revision must be a non-negative integer') unless payload['revision'].is_a?(Integer) && payload['revision'] >= 0
+
+          model, snapshot = @model_state.capture
+          if payload['model_guid'] != snapshot.fetch(:guid)
+            return error(
+              'MODEL_CHANGED',
+              'EntityRef model_guid no longer matches the active model identity epoch',
+              'referenced_model_guid' => payload['model_guid'],
+              'current_model_guid' => snapshot.fetch(:guid),
+              'current_revision' => snapshot.fetch(:revision)
+            )
+          end
+
+          entity = model.find_entity_by_persistent_id(payload['persistent_id'])
+          return error('ENTITY_NOT_FOUND', 'No entity exists for the requested persistent_id') unless entity
+          return unsupported_type(entity) unless supported_entity?(entity)
+
+          child_entities = if entity.typename.to_s == 'Group'
+                             entity.entities
+                           elsif entity.respond_to?(:definition) && entity.definition
+                             entity.definition.entities
+                           end
+          return error('ENTITY_TYPE_NOT_SUPPORTED', 'Entity does not expose child entities') unless child_entities
+
+          children = []
+          supported_count = 0
+          child_entities.each do |child|
+            next unless supported_entity?(child)
+
+            supported_count += 1
+            next if children.length >= MAX_CHILD_ENTITIES
+
+            ref, ref_error = reference_for(child, snapshot)
+            children << {
+              'ref' => ref,
+              'type' => child.typename.to_s,
+              'name' => entity_name(child),
+              'material' => child.respond_to?(:material) ? child.material&.name.to_s : '',
+              'error' => ref_error
+            }
+          end
+
+          ok(
+            'current_revision' => snapshot.fetch(:revision),
+            'revision_mismatch' => payload['revision'] != snapshot.fetch(:revision),
+            'raw_entity_count' => child_entities.length,
+            'supported_child_count' => supported_count,
+            'returned_count' => children.length,
+            'truncated' => supported_count > children.length,
+            'children' => children
           )
         end
 
