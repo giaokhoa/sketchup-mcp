@@ -1,5 +1,3 @@
-[Reading 196 lines from start (total: 196 lines, 0 remaining)]
-
 package app
 
 import (
@@ -16,26 +14,26 @@ import (
 )
 
 const (
-	SessionsListToolName         = "sketchup.sessions.list"
-	ModelSummaryToolName         = "model.summary"
-	SelectionGetToolName         = "selection.get"
-	EntityInspectToolName        = "entity.inspect"
-	EntityChildrenListToolName   = "entity.children.list"
-	EntityTranslateToolName      = "entity.translate"
-	EntityDeleteToolName         = "entity.delete"
-	EntityMaterialSetToolName    = "entity.material.set"
-	EntityNameSetToolName        = "entity.name.set"
-	AssemblyCreateToolName       = "assembly.create"
-	BoxCreateToolName            = "geometry.create_box"
-	ModelUndoToolName            = "changes.undo"
-	LayoutA3SheetCreateToolName  = "layout.a3_sheet.create"
+	SessionsListToolName    = "sketchup.sessions.list"
+	ModelSummaryToolName    = "model.summary"
+	SelectionGetToolName    = "selection.get"
+	EntityInspectToolName      = "entity.inspect"
+	EntityChildrenListToolName = "entity.children.list"
+	EntityTranslateToolName    = "entity.translate"
+	EntityDeleteToolName      = "entity.delete"
+	EntityMaterialSetToolName = "entity.material.set"
+	EntityNameSetToolName     = "entity.name.set"
+	AssemblyCreateToolName     = "assembly.create"
+	BoxCreateToolName          = "geometry.create_box"
+	ModelUndoToolName          = "changes.undo"
+	LayoutA3SheetCreateToolName = "layout.a3_sheet.create"
 	LayoutDocumentCreateToolName = "layout.document.create"
-	LayoutViewportAddToolName    = "layout.viewport.add"
-	LayoutDimensionAddToolName   = "layout.dimension.add"
-	LayoutTextAddToolName        = "layout.text.add"
-	LayoutLineAddToolName        = "layout.line.add"
-	LayoutRectangleAddToolName   = "layout.rectangle.add"
-	LayoutExportToolName         = "layout.export"
+	LayoutViewportAddToolName = "layout.viewport.add"
+	LayoutDimensionAddToolName = "layout.dimension.add"
+	LayoutTextAddToolName = "layout.text.add"
+	LayoutLineAddToolName = "layout.line.add"
+	LayoutRectangleAddToolName = "layout.rectangle.add"
+	LayoutExportToolName = "layout.export"
 
 	ServerInstructions = "Start with sketchup.sessions.list and choose one live session. Read model.summary before any write and use the returned model GUID and revision. Reuse durable entity references returned by selection.get, entity.inspect, or mutation results. Give every intended write a unique operation_id. If a write returns STALE_REVISION, re-read model state and retry with a new operation_id."
 )
@@ -196,5 +194,3 @@ func domainError(err error) *model.ToolError {
 	}
 	return result
 }
-
-[executed on device: TRANKIMVU (8beafd98-533f-4106-8d11-e085770e63d2)]
