@@ -249,6 +249,41 @@ module Giaokhoa
         end
       end
 
+      def create_layout_a3(payload)
+        context, result = prepare_request(
+          'layout.a3_sheet.create',
+          payload,
+          %w[mutation output_directory base_name export_pdf],
+          'SketchUp MCP: Create A3 LayOut Sheet'
+        )
+        return result if result
+
+        output_directory = payload['output_directory']
+        base_name = payload['base_name']
+        export_pdf = payload['export_pdf']
+
+        unless output_directory.is_a?(String) && !output_directory.strip.empty? &&
+               base_name.is_a?(String) && base_name.match?(/\A[A-Za-z0-9._-]{1,80}\z/) &&
+               (export_pdf == true || export_pdf == false)
+          return invalid('layout output_directory/base_name/export_pdf are invalid')
+        end
+
+        builder = LayoutSheetBuilder.new(
+          model: context.model,
+          output_directory: output_directory,
+          base_name: base_name,
+          export_pdf: export_pdf
+        )
+
+        perform_operation(context, 'SketchUp MCP: Create A3 LayOut Sheet') do
+          scene_names = builder.prepare_scenes!
+
+          lambda do |_post_snapshot|
+            builder.build!(scene_names)
+          end
+        end
+      end
+
       def create_box(payload)
         context, result = prepare_request(
           'geometry.create_box',
