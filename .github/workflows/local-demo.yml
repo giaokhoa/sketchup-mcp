@@ -1,0 +1,107 @@
+name: local-demo
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Go tests
+        run: |
+          go test ./...
+          go vet ./...
+          go test -race ./...
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+
+      - name: Ruby bridge tests
+        run: |
+          ruby test/protocol_test.rb
+          ruby test/dispatcher_test.rb
+          ruby test/model_context_test.rb
+          ruby test/server_integration_test.rb
+          ruby test/mutation_engine_test.rb
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Build demo bundle twice
+        run: |
+          python scripts/package_demo.py --skip-tests --output-dir dist-a
+          python scripts/package_demo.py --skip-tests --output-dir dist-b
+
+      - name: Verify byte reproducibility
+        run: |
+          cmp dist-a/sketchup-mcp-windows-amd64.exe dist-b/sketchup-mcp-windows-amd64.exe
+          cmp dist-a/giaokhoa_sketchup_mcp.rbz dist-b/giaokhoa_sketchup_mcp.rbz
+          cmp dist-a/SHA256SUMS.txt dist-b/SHA256SUMS.txt
+
+      - name: Verify RBZ root layout and checksums
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import zipfile
+
+          root = Path("dist-a")
+          rbz = root / "giaokhoa_sketchup_mcp.rbz"
+
+          with zipfile.ZipFile(rbz) as archive:
+              roots = {name.split("/", 1)[0] for name in archive.namelist()}
+              expected = {"giaokhoa_sketchup_mcp.rb", "giaokhoa_sketchup_mcp"}
+              if roots != expected:
+                  raise SystemExit(f"unexpected RBZ roots: {sorted(roots)}")
+
+          expected_sums = {}
+          for line in (root / "SHA256SUMS.txt").read_text(encoding="ascii").splitlines():
+              digest, name = line.split("  ", 1)
+              expected_sums[name] = digest
+
+          for name, expected in expected_sums.items():
+              actual = hashlib.sha256((root / name).read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f"checksum mismatch for {name}")
+          PY
+
+      - name: Stage upload directory
+        run: |
+          mkdir dist
+          cp dist-a/sketchup-mcp-windows-amd64.exe dist/
+          cp dist-a/giaokhoa_sketchup_mcp.rbz dist/
+          cp dist-a/SHA256SUMS.txt dist/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sketchup-mcp-windows-demo
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
