@@ -216,17 +216,28 @@ module Giaokhoa
 
       def add_view_label(doc, layer, page, rect, title, scale_text, label_y)
         x, _y, w, _h = rect
-        text = Layout::FormattedText.new(
-          "#{title}\nTỶ LỆ: #{scale_text}",
-          Geom::Bounds2d.new(x, label_y, w, 0.50)
+        title_text = Layout::FormattedText.new(
+          title,
+          Geom::Bounds2d.new(x, label_y, w, 0.24)
         )
-        style = text.style
-        style.font_family = 'Arial'
-        style.font_size = 9.0
-        style.text_bold = true
-        style.text_alignment = Layout::Style::ALIGN_CENTER
-        text.style = style
-        doc.add_entity(text, layer, page)
+        title_style = title_text.style
+        title_style.font_family = 'Arial'
+        title_style.font_size = 9.0
+        title_style.text_bold = true
+        title_style.text_alignment = Layout::Style::ALIGN_CENTER
+        title_text.style = title_style
+        doc.add_entity(title_text, layer, page)
+
+        scale = Layout::FormattedText.new(
+          "TỶ LỆ: #{scale_text}",
+          Geom::Bounds2d.new(x, label_y + 0.25, w, 0.18)
+        )
+        scale_style = scale.style
+        scale_style.font_family = 'Arial'
+        scale_style.font_size = 6.5
+        scale_style.text_alignment = Layout::Style::ALIGN_CENTER
+        scale.style = scale_style
+        doc.add_entity(scale, layer, page)
       end
 
       def add_sheet_frame(doc, layer, page)
@@ -371,25 +382,19 @@ module Giaokhoa
         # Overall vertical dimension on the left.
         count += add_dimension(doc, layer, page, [5.98, 1.22], [5.98, 3.78], -0.27, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
 
-        # Detailed vertical construction chain on the right:
-        # 250 leg + 18 bottom + 2 reveal + 398 door + 22 drawer zone +
-        # 178 drawer front + 2 reveal + 30 top = 900.
-        z_spans = [250.0, 18.0, 2.0, 398.0, 22.0, 178.0, 2.0, 30.0]
+        # Detailed vertical zones, matching the reference drawing style:
+        # 250 legs + 420 lower cabinet + 200 drawer band + 30 top = 900.
+        z_spans = [250.0, 420.0, 200.0, 30.0]
         y1 = 3.78
         full = 3.78 - 1.22
-        consumed = 0.0
-        z_spans.each_with_index do |span, index|
+        z_spans.each do |span|
           y2 = y1 - full * (span / 900.0)
-          tiny = span <= 2.0
-          text_pos = tiny ? [11.46 + (index.even? ? 0.0 : 0.10), (y1 + y2) / 2.0] : nil
           count += add_dimension(
             doc, layer, page, [11.16, y1], [11.16, y2], 0.25,
             span.to_i.to_s,
             Layout::LinearDimension::DIMENSION_LINE_VERTICAL,
-            text_pos: text_pos,
-            font_size: tiny ? 6.0 : 6.5
+            font_size: 6.6
           )
-          consumed += span
           y1 = y2
         end
         count
@@ -407,7 +412,9 @@ module Giaokhoa
         cursor = x0
         spans.each do |span|
           nxt = cursor + (x1 - x0) * (span / total)
-          text_pos = span <= 20.0 ? [(cursor + nxt) / 2.0, 1.00] : nil
+          text_pos = if span <= 20.0
+                       [(cursor + nxt) / 2.0, span == 6.0 ? 0.82 : 1.00]
+                     end
           count += add_dimension(
             doc, layer, page, [cursor, y0], [nxt, y0], -0.30,
             span.to_i.to_s,
@@ -419,9 +426,25 @@ module Giaokhoa
         end
 
         count += add_dimension(doc, layer, page, [12.10, 1.26], [12.10, 3.78], -0.25, '900', Layout::LinearDimension::DIMENSION_LINE_VERTICAL)
-        count += add_dimension(doc, layer, page, [15.80, 1.44], [15.80, 1.86], 0.22, '30', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.5)
-        count += add_dimension(doc, layer, page, [15.80, 1.98], [15.80, 2.24], 0.22, '12', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.5)
-        count += add_dimension(doc, layer, page, [15.80, 2.70], [15.80, 2.96], 0.22, '18', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.5)
+
+        # Internal vertical zones: legs / lower shelf levels / drawer band / top.
+        z_spans = [250.0, 220.0, 18.0, 182.0, 200.0, 30.0]
+        y1 = 3.78
+        full = 3.78 - 1.26
+        z_spans.each do |span|
+          y2 = y1 - full * (span / 900.0)
+          count += add_dimension(
+            doc, layer, page, [15.78, y1], [15.78, y2], 0.20,
+            span.to_i.to_s,
+            Layout::LinearDimension::DIMENSION_LINE_VERTICAL,
+            font_size: span <= 30.0 ? 6.0 : 6.4
+          )
+          y1 = y2
+        end
+
+        # Local thickness callouts.
+        count += add_dimension(doc, layer, page, [15.45, 1.98], [15.45, 2.24], 0.18, '12', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.1)
+        count += add_dimension(doc, layer, page, [15.45, 2.70], [15.45, 2.96], 0.18, '18', Layout::LinearDimension::DIMENSION_LINE_VERTICAL, font_size: 6.1)
         count
       end
 
@@ -470,7 +493,9 @@ module Giaokhoa
         cursor = x0
         spans.each do |span|
           nxt = cursor + (x1 - x0) * (span / 450.0)
-          text_pos = span <= 20.0 ? [(cursor + nxt) / 2.0, 6.34] : nil
+          text_pos = if span <= 20.0
+                       [(cursor + nxt) / 2.0, span == 6.0 ? 6.15 : 6.34]
+                     end
           count += add_dimension(
             doc, layer, page, [cursor, y0], [nxt, y0], -0.30,
             span.to_i.to_s,
@@ -486,19 +511,18 @@ module Giaokhoa
       end
 
       def add_notes(doc, layer, page)
-        lines = [
-          'GHI CHÚ:',
-          '- Kích thước tính bằng millimet (mm).',
-          '- Cánh dưới lọt lòng; khe giữa các cánh: 2 mm.',
-          '- Ván hộp ngăn kéo: 12 mm; đợt di động: 18 mm.'
-        ]
-        text = Layout::FormattedText.new(
-          lines.join("\n"),
-          Geom::Bounds2d.new(12.15, 10.92, 3.75, 0.48)
-        )
+        add_note_line(doc, layer, page, 'GHI CHÚ:', 11.25, 10.92, 4.55, 6.4, true)
+        add_note_line(doc, layer, page, '- Kích thước tính bằng millimet (mm).', 11.25, 11.08, 4.55, 5.8, false)
+        add_note_line(doc, layer, page, '- Cánh dưới lọt lòng; khe giữa các cánh: 2 mm.', 11.25, 11.22, 4.55, 5.8, false)
+        add_note_line(doc, layer, page, '- Ván hộp ngăn kéo: 12 mm; đợt di động: 18 mm.', 11.25, 11.36, 4.55, 5.8, false)
+      end
+
+      def add_note_line(doc, layer, page, value, x, y, width, font_size, bold)
+        text = Layout::FormattedText.new(value, Geom::Bounds2d.new(x, y, width, 0.13))
         style = text.style
         style.font_family = 'Arial'
-        style.font_size = 6.2
+        style.font_size = font_size
+        style.text_bold = bold
         text.style = style
         doc.add_entity(text, layer, page)
       end
