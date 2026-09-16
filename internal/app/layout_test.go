@@ -1,9 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/giaokhoa/sketchup-mcp/internal/model"
@@ -12,7 +15,8 @@ import (
 )
 
 type layoutService struct {
-	operation string
+	operation   string
+	previewPath string
 }
 
 func (s *layoutService) List(context.Context) (sessions.ListOutput, error) {
@@ -42,7 +46,13 @@ func (s *layoutService) Call(_ context.Context, _ string, operation string, _ an
 
 func TestLayoutToolUsesSingleSketchUpBridgeOperation(t *testing.T) {
 	ctx := context.Background()
-	service := &layoutService{}
+	preview := []byte("native-preview-png")
+	previewPath := filepath.Join(t.TempDir(), "cabinet.png")
+	if err := os.WriteFile(previewPath, preview, 0o600); err != nil {
+		t.Fatalf("write preview: %v", err)
+	}
+
+	service := &layoutService{previewPath: previewPath}
 	server := NewServer(slog.New(slog.NewTextHandler(io.Discard, nil)), service)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(ctx, serverTransport, nil)
@@ -75,6 +85,19 @@ func TestLayoutToolUsesSingleSketchUpBridgeOperation(t *testing.T) {
 	}
 	if service.operation != LayoutA3SheetCreateToolName {
 		t.Fatalf("bridge operation = %q, want %q", service.operation, LayoutA3SheetCreateToolName)
+	}
+	if len(result.Content) != 1 {
+		t.Fatalf("content blocks = %d, want one native preview image", len(result.Content))
+	}
+	image, ok := result.Content[0].(*mcp.ImageContent)
+	if !ok {
+		t.Fatalf("content[0] = %T, want *mcp.ImageContent", result.Content[0])
+	}
+	if image.MIMEType != "image/png" {
+		t.Fatalf("preview MIME type = %q, want image/png", image.MIMEType)
+	}
+	if !bytes.Equal(image.Data, preview) {
+		t.Fatalf("preview bytes = %q, want %q", image.Data, preview)
 	}
 
 	if err := clientSession.Close(); err != nil {
