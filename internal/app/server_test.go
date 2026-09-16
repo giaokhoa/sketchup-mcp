@@ -76,6 +76,13 @@ func (emptySessionLister) Call(_ context.Context, _ string, operation string, _ 
 				{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", PersistentID: 43, Revision: 8},
 			},
 		}
+	case *model.LayoutA3SheetOutput:
+		*target = model.LayoutA3SheetOutput{
+			OperationID: "op-layout", ModelGUID: "model-guid", Revision: 8,
+			SKPPath: "C:\\out\\cabinet.skp", LayOutPath: "C:\\out\\cabinet.layout",
+			PDFPath: "C:\\out\\cabinet.pdf", PageWidthMM: 420, PageHeightMM: 297,
+			ViewportCount: 6, DimensionCount: 20, Scenes: []string{"PLAN", "FRONT"},
+		}
 	case *model.CreateBoxOutput:
 		*target = model.CreateBoxOutput{
 			OperationID: "op-box", ModelGUID: "model-guid", Revision: 8,
@@ -363,6 +370,7 @@ func TestMutationToolsExposeTypedIdempotentWriteSchemas(t *testing.T) {
 		EntityMaterialSetToolName,
 		EntityNameSetToolName,
 		AssemblyCreateToolName,
+		LayoutA3SheetCreateToolName,
 		BoxCreateToolName,
 		ModelUndoToolName,
 	} {
