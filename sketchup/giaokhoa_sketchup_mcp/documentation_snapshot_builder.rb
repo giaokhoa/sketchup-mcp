@@ -273,7 +273,7 @@ module Giaokhoa
 
       def paper_views
         [
-          view('plan', 'MẶT BẰNG', @scenes.fetch(:plan), [0.55, 0.60, 4.70, 3.25], 1.0 / 15.0, false),
+          view('plan', 'MẶT BẰNG', @scenes.fetch(:plan), [0.45, 0.60, 4.90, 3.25], 1.0 / 15.0, false),
           view('front', 'MẶT ĐỨNG CHÍNH', @scenes.fetch(:front), [5.82, 0.55, 5.48, 3.40], 1.0 / 15.0, false),
           view('section_a', 'MẶT CẮT A-A', @scenes.fetch(:section_a), [11.92, 0.55, 4.10, 3.45], 1.0 / 10.0, false),
           view('section_b', 'MẶT CẮT B-B', @scenes.fetch(:section_b), [0.55, 5.95, 6.35, 3.75], 1.0 / 15.0, false),
