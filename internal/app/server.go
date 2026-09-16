@@ -19,6 +19,8 @@ const (
 	SelectionGetToolName    = "selection.get"
 	EntityInspectToolName   = "entity.inspect"
 	EntityTranslateToolName = "entity.translate"
+	EntityDeleteToolName    = "entity.delete"
+	EntityMaterialSetToolName = "entity.material.set"
 	BoxCreateToolName       = "geometry.create_box"
 	ModelUndoToolName       = "changes.undo"
 
