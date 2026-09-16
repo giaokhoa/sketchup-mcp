@@ -1,3 +1,5 @@
+[Reading 158 lines from start (total: 158 lines, 0 remaining)]
+
 package app
 
 import (
@@ -12,7 +14,7 @@ import (
 
 func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 	mcp.AddTool(server, &mcp.Tool{
-		Name: LayoutDocumentCreateToolName,
+		Name:        LayoutDocumentCreateToolName,
 		Description: "Create one empty LayOut document with one page. Paper size is provided in millimeters.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutDocumentCreateInput) (*mcp.CallToolResult, model.LayoutFileOutput, error) {
@@ -31,7 +33,7 @@ func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: LayoutViewportAddToolName,
+		Name:        LayoutViewportAddToolName,
 		Description: "Add one SketchUp viewport to an existing LayOut page using millimeter paper bounds and either a scene or standard view.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutViewportAddInput) (*mcp.CallToolResult, model.LayoutEntityOutput, error) {
@@ -50,7 +52,7 @@ func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: LayoutDimensionAddToolName,
+		Name:        LayoutDimensionAddToolName,
 		Description: "Add one associative linear dimension connected to model geometry through a LayOut viewport and SketchUp persistent-id paths.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutDimensionAddInput) (*mcp.CallToolResult, model.LayoutEntityOutput, error) {
@@ -69,7 +71,7 @@ func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: LayoutTextAddToolName,
+		Name:        LayoutTextAddToolName,
 		Description: "Add one text box to an existing LayOut page using millimeter paper bounds.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutTextAddInput) (*mcp.CallToolResult, model.LayoutEntityOutput, error) {
@@ -88,7 +90,7 @@ func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: LayoutLineAddToolName,
+		Name:        LayoutLineAddToolName,
 		Description: "Add one straight line to an existing LayOut page using millimeter paper coordinates.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutLineAddInput) (*mcp.CallToolResult, model.LayoutEntityOutput, error) {
@@ -107,7 +109,7 @@ func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: LayoutRectangleAddToolName,
+		Name:        LayoutRectangleAddToolName,
 		Description: "Add one unfilled rectangle to an existing LayOut page using millimeter paper bounds.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutRectangleAddInput) (*mcp.CallToolResult, model.LayoutEntityOutput, error) {
@@ -126,7 +128,7 @@ func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: LayoutExportToolName,
+		Name:        LayoutExportToolName,
 		Description: "Export an existing LayOut document to PDF, PNG, or JPEG. Image exports are also returned as native MCP image content.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutExportInput) (*mcp.CallToolResult, model.LayoutExportOutput, error) {
@@ -156,3 +158,5 @@ func addLayoutPrimitiveTools(server *mcp.Server, service SessionService) {
 		}}, output, nil
 	})
 }
+
+[executed on device: TRANKIMVU (8beafd98-533f-4106-8d11-e085770e63d2)]
