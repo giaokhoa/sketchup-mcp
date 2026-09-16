@@ -77,6 +77,46 @@ module Giaokhoa
         end
         raise 'drawing spec must contain exactly six views' unless @spec.fetch('views').length == 6
         raise 'drawing spec has no dimensions' if @spec.fetch('dimensions').empty?
+        validate_paper_layout_spec!
+      end
+
+      def validate_paper_layout_spec!
+        page_width = A3_WIDTH_MM / MM_PER_INCH
+        page_height = A3_HEIGHT_MM / MM_PER_INCH
+        views = @spec.fetch('views')
+
+        views.each do |view|
+          rect = view.fetch('rect')
+          left = rect.fetch('left').to_f
+          top = rect.fetch('top').to_f
+          right = rect.fetch('right').to_f
+          bottom = rect.fetch('bottom').to_f
+
+          raise "view #{view.fetch('id')} has invalid paper bounds" unless right > left && bottom > top
+          unless left >= 0.0 && top >= 0.0 && right <= page_width && bottom <= page_height
+            raise "view #{view.fetch('id')} exceeds A3 page bounds"
+          end
+
+          label_bottom = bottom + 0.08 + 0.41
+          raise "view #{view.fetch('id')} label exceeds A3 page bounds" if label_bottom > page_height
+        end
+
+        views.combination(2) do |a, b|
+          next unless paper_rectangles_overlap?(a.fetch('rect'), b.fetch('rect'))
+
+          raise "views #{a.fetch('id')} and #{b.fetch('id')} overlap"
+        end
+
+        notes_bottom = 10.88 + ((@spec.fetch('notes').length - 1) * 0.15) + 0.14
+        raise 'notes exceed A3 page bounds' if notes_bottom > page_height
+      end
+
+      def paper_rectangles_overlap?(a, b)
+        tolerance = 0.001
+        a.fetch('left') < b.fetch('right') - tolerance &&
+          a.fetch('right') > b.fetch('left') + tolerance &&
+          a.fetch('top') < b.fetch('bottom') - tolerance &&
+          a.fetch('bottom') > b.fetch('top') + tolerance
       end
 
       def output_paths
