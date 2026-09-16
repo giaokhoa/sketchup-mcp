@@ -27,6 +27,7 @@ func addLayoutTemplateTools(server *mcp.Server, service SessionService) {
 		if output.Pages == nil { output.Pages = []model.LayoutTemplatePage{} }
 		if output.Layers == nil { output.Layers = []model.LayoutTemplateLayer{} }
 		if output.Slots == nil { output.Slots = []model.LayoutTemplateSlot{} }
+		if output.Panels == nil { output.Panels = []model.LayoutTemplatePanel{} }
 		if output.Styles == nil { output.Styles = []model.LayoutTemplateStyle{} }
 		if output.AutoTextTypes == nil { output.AutoTextTypes = []string{} }
 		return &mcp.CallToolResult{}, output, nil
