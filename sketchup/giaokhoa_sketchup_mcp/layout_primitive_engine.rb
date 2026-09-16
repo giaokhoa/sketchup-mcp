@@ -385,7 +385,9 @@ module Giaokhoa
 
       def validate_layout_panel(payload)
         required = %w[layout_path page_index panel_id margin_mm]
-        return invalid('payload fields are invalid') unless payload.is_a?(Hash) && payload.keys.sort == required
+        unless payload.is_a?(Hash) && required.all? { |key| payload.key?(key) }
+          return invalid('payload fields are invalid')
+        end
 
         doc = open_layout_document(payload['layout_path'])
         page = layout_page(doc, payload['page_index'])
