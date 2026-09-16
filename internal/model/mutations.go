@@ -202,6 +202,49 @@ func (i MaterialSetInput) BridgePayload() any {
 	}
 }
 
+type NameSetInput struct {
+	MutationEnvelope
+	EntityRef EntityRef `json:"entity_ref" jsonschema:"durable persistent-id entity reference"`
+	Name      string    `json:"name" jsonschema:"human-readable instance or group name, at most 128 UTF-8 bytes"`
+}
+
+func (i NameSetInput) Validate() error {
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := i.EntityRef.Validate(); err != nil {
+		return fmt.Errorf("entity_ref: %w", err)
+	}
+	if i.EntityRef.SessionID != i.SessionID {
+		return errors.New("entity_ref session_id must match session_id")
+	}
+	if i.EntityRef.ModelGUID != i.ExpectedModelGUID {
+		return errors.New("entity_ref model_guid must match expected_model_guid")
+	}
+	if i.EntityRef.Revision != i.ExpectedRevision {
+		return errors.New("entity_ref revision must match expected_revision")
+	}
+	if strings.TrimSpace(i.Name) == "" {
+		return errors.New("name is required")
+	}
+	if len(i.Name) > 128 {
+		return errors.New("name must be at most 128 bytes")
+	}
+	return nil
+}
+
+func (i NameSetInput) BridgePayload() any {
+	return struct {
+		Mutation  BridgeMutation `json:"mutation"`
+		EntityRef EntityRef      `json:"entity_ref"`
+		Name      string         `json:"name"`
+	}{
+		Mutation:  i.bridgeMutation("SketchUp MCP: Set Entity Name"),
+		EntityRef: i.EntityRef,
+		Name:      i.Name,
+	}
+}
+
 type BoxDimensions struct {
 	Width  float64 `json:"width" jsonschema:"box width in SketchUp internal inches, greater than zero"`
 	Depth  float64 `json:"depth" jsonschema:"box depth in SketchUp internal inches, greater than zero"`
@@ -305,6 +348,15 @@ type MaterialSetOutput struct {
 	EntityRef   *EntityRef    `json:"entity_ref,omitempty"`
 	Material    *MaterialInfo `json:"material,omitempty"`
 	Error       *ToolError    `json:"error,omitempty"`
+}
+
+type NameSetOutput struct {
+	OperationID string     `json:"operation_id,omitempty"`
+	ModelGUID   string     `json:"model_guid,omitempty"`
+	Revision    uint64     `json:"revision"`
+	EntityRef   *EntityRef `json:"entity_ref,omitempty"`
+	Name        string     `json:"name,omitempty"`
+	Error       *ToolError `json:"error,omitempty"`
 }
 
 type UndoOutput MutationOutput
