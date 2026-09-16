@@ -400,7 +400,7 @@ module Giaokhoa
             nil,
             error(
               'ENTITY_TYPE_NOT_SUPPORTED',
-              "entity type #{type} cannot be translated",
+              "entity type #{type} is not supported by mutations",
               'entity_type' => type,
               'supported_types' => SUPPORTED_ENTITY_TYPES
             )
