@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 7 |
+| Local MCP tools | 9 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -103,6 +103,8 @@ model.summary
 selection.get
 entity.inspect
 entity.translate
+entity.delete
+entity.material.set
 geometry.create_box
 changes.undo
 ```
@@ -119,7 +121,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly seven MCP tools discovered;
+- exactly nine MCP tools discovered;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
@@ -132,7 +134,13 @@ Go MCP stdio server.
 - a fresh write using an old revision returned `STALE_REVISION`;
 - undo restored translation;
 - undo removed the test box;
-- inspection after removal returned `ENTITY_NOT_FOUND`.
+- inspection after removal returned `ENTITY_NOT_FOUND`;
+- entity deletion replay did not delete a second entity;
+- stale entity deletion returned `STALE_REVISION`;
+- undo restored a deleted entity;
+- material assignment replay did not duplicate a mutation/material;
+- stale material assignment returned `STALE_REVISION`;
+- undo restored the previous unpainted appearance.
 
 ### Responsiveness
 
@@ -167,24 +175,48 @@ A subsequent `entity.inspect` measured the top slab as:
 The model revision advanced from 8 to 26 and SketchUp remained responsive. The
 cabinet was intentionally left in the open model for visual inspection.
 
-This smoke test exposed two useful next-step product requirements: deleting an
-existing entity and assigning material/color. Those additions are tracked in
-#16 and are deliberately not mixed into the #9 packaging baseline.
+The #9 smoke test exposed two practical gaps: deletion and material assignment.
+Issue #16 added only those two capabilities and then repeated the furniture test
+on a fresh SketchUp instance using the packaged PR artifact.
+
+### Colored furniture smoke - issue #16
+
+The fresh model's default scale figure was selected, addressed by durable
+ComponentInstance reference, deleted through `entity.delete`, replayed without
+a second deletion, restored through `changes.undo`, checked against a stale
+revision, and then deleted for the final model.
+
+The cabinet was rebuilt as 18 groups at **1800 mm** overall width. Material
+assignment was exercised with replay, undo, and stale-revision checks before the
+final appearance was applied:
+
+- 12 cabinet parts: `cabinet-light-wood`, RGB **222, 203, 176**;
+- 6 handles: `cabinet-bronze`, RGB **146, 94, 65**.
+
+A final MCP selection/inspection pass reported:
+
+- 18 top-level groups;
+- 0 ComponentInstances, confirming the scale figure was removed;
+- 12 groups using `cabinet-light-wood`;
+- 6 groups using `cabinet-bronze`;
+- top slab size **1800.0 x 450.0 x 30.0 mm**;
+- SketchUp still `Responding=True`.
+
+Do not assert that a fresh SketchUp template contains only two materials:
+SketchUp may preload additional template materials. The acceptance check is the
+material attached to the target entities, not the total material collection
+size.
 
 ## Known local-demo limitations
 
-The current seven-tool surface intentionally does not yet provide:
+The current surface intentionally does not provide:
 
-- entity deletion;
-- material/color assignment;
 - texture/PBR/UV workflows;
 - arbitrary Ruby execution;
 - remote MCP transport.
 
-The default SketchUp scale figure therefore cannot yet be deleted through the
-supported MCP surface, and the cabinet cannot yet receive the reference image's
-light wood / bronze appearance through MCP. #16 adds only the first two
-capabilities after this package baseline is complete.
+Solid RGB material assignment is intentionally bounded; it is not a general
+appearance framework.
 
 ## Troubleshooting
 
