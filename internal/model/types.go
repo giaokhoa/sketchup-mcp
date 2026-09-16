@@ -22,6 +22,8 @@ const (
 	ErrorInvalidTransform              = "INVALID_TRANSFORM"
 	ErrorSketchUpOperationFailed       = "SKETCHUP_OPERATION_FAILED"
 	ErrorMaterialNameConflict           = "MATERIAL_NAME_CONFLICT"
+	ErrorAssemblyParentMismatch          = "ASSEMBLY_PARENT_MISMATCH"
+	ErrorAssemblySharedDefinition        = "ASSEMBLY_SHARED_DEFINITION"
 )
 
 type ToolError struct {
