@@ -215,3 +215,60 @@ func TestNameSetBridgePayloadUsesMutationEnvelope(t *testing.T) {
 		t.Fatalf("session_id leaked into bridge payload: %s", data)
 	}
 }
+
+
+func TestAssemblyCreateInputValidatesSiblingReferenceEnvelopeShape(t *testing.T) {
+	second := validRef()
+	second.PersistentID = 43
+	input := AssemblyCreateInput{
+		MutationEnvelope: validEnvelope(),
+		Name:             "Drawer Assembly - Left",
+		Children:         []EntityRef{validRef(), second},
+	}
+	if err := input.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	input.Children[1].PersistentID = 42
+	if err := input.Validate(); err == nil || !strings.Contains(err.Error(), "duplicates") {
+		t.Fatalf("Validate() error = %v, want duplicate PID error", err)
+	}
+
+	input.Children[1] = second
+	input.Children[1].Revision = 6
+	if err := input.Validate(); err == nil || !strings.Contains(err.Error(), "revision") {
+		t.Fatalf("Validate() error = %v, want revision mismatch", err)
+	}
+
+	input.Children[1] = second
+	input.Name = " "
+	if err := input.Validate(); err == nil {
+		t.Fatal("Validate() = nil, want blank-name error")
+	}
+}
+
+func TestAssemblyCreateBridgePayloadUsesMutationEnvelope(t *testing.T) {
+	second := validRef()
+	second.PersistentID = 43
+	input := AssemblyCreateInput{
+		MutationEnvelope: validEnvelope(),
+		Name:             "Carcass",
+		Children:         []EntityRef{validRef(), second},
+	}
+	data, err := json.Marshal(input.BridgePayload())
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	for _, key := range []string{"mutation", "name", "children"} {
+		if _, ok := payload[key]; !ok {
+			t.Fatalf("payload missing %q: %s", key, data)
+		}
+	}
+	if _, leaked := payload["session_id"]; leaked {
+		t.Fatalf("session_id leaked into bridge payload: %s", data)
+	}
+}
