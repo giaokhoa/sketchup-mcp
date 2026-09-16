@@ -25,7 +25,8 @@ const (
 	EntityNameSetToolName     = "entity.name.set"
 	AssemblyCreateToolName     = "assembly.create"
 	BoxCreateToolName          = "geometry.create_box"
-	ModelUndoToolName       = "changes.undo"
+	ModelUndoToolName          = "changes.undo"
+	LayoutA3SheetCreateToolName = "layout.a3_sheet.create"
 
 	ServerInstructions = "Start with sketchup.sessions.list and choose one live session. Read model.summary before any write and use the returned model GUID and revision. Reuse durable entity references returned by selection.get, entity.inspect, or mutation results. Give every intended write a unique operation_id. If a write returns STALE_REVISION, re-read model state and retry with a new operation_id."
 )
@@ -145,6 +146,7 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 	})
 
 	addMutationTools(server, service)
+	addLayoutTools(server, service)
 	return server
 }
 
