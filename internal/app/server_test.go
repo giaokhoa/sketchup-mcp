@@ -27,6 +27,8 @@ func (emptySessionLister) Call(_ context.Context, _ string, operation string, _ 
 		*target = model.SelectionOutput{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", Revision: 7, Entities: []model.SelectionEntity{}}
 	case *model.InspectOutput:
 		*target = model.InspectOutput{CurrentRevision: 7, RevisionMismatch: true}
+	case *model.ChildrenOutput:
+		*target = model.ChildrenOutput{CurrentRevision: 7, Children: []model.ChildEntity{}}
 	case *model.TranslateOutput:
 		*target = model.TranslateOutput{
 			OperationID: "op-translate", ModelGUID: "model-guid", Revision: 8,
@@ -60,6 +62,19 @@ func (emptySessionLister) Call(_ context.Context, _ string, operation string, _ 
 				ModelGUID: "model-guid", PersistentID: 42, Revision: 8,
 			},
 			Name: "Cabinet Side Left",
+		}
+	case *model.AssemblyCreateOutput:
+		*target = model.AssemblyCreateOutput{
+			OperationID: "op-assembly", ModelGUID: "model-guid", Revision: 8,
+			Name: "Drawer Assembly - Left",
+			AssemblyRef: &model.EntityRef{
+				SessionID: "11111111-1111-4111-8111-111111111111",
+				ModelGUID: "model-guid", PersistentID: 100, Revision: 8,
+			},
+			Children: []model.EntityRef{
+				{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", PersistentID: 42, Revision: 8},
+				{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", PersistentID: 43, Revision: 8},
+			},
 		}
 	case *model.CreateBoxOutput:
 		*target = model.CreateBoxOutput{
@@ -214,7 +229,7 @@ func TestLiveModelToolsExposeTypedReadOnlySchemas(t *testing.T) {
 		tools[tool.Name] = tool
 	}
 
-	for _, name := range []string{ModelSummaryToolName, SelectionGetToolName, EntityInspectToolName} {
+	for _, name := range []string{ModelSummaryToolName, SelectionGetToolName, EntityInspectToolName, EntityChildrenListToolName} {
 		tool := tools[name]
 		if tool == nil {
 			t.Fatalf("tool %q not found", name)
@@ -238,6 +253,10 @@ func TestLiveModelToolsExposeTypedReadOnlySchemas(t *testing.T) {
 		{ModelSummaryToolName, map[string]any{"session_id": sessionID}},
 		{SelectionGetToolName, map[string]any{"session_id": sessionID}},
 		{EntityInspectToolName, map[string]any{
+			"session_id": sessionID, "model_guid": "model-guid",
+			"persistent_id": float64(42), "revision": float64(1),
+		}},
+		{EntityChildrenListToolName, map[string]any{
 			"session_id": sessionID, "model_guid": "model-guid",
 			"persistent_id": float64(42), "revision": float64(1),
 		}},
@@ -343,6 +362,7 @@ func TestMutationToolsExposeTypedIdempotentWriteSchemas(t *testing.T) {
 		EntityDeleteToolName,
 		EntityMaterialSetToolName,
 		EntityNameSetToolName,
+		AssemblyCreateToolName,
 		BoxCreateToolName,
 		ModelUndoToolName,
 	} {
