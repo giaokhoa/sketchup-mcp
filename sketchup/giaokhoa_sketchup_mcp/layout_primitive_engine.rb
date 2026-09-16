@@ -282,7 +282,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.line.add',
           payload,
-          %w[mutation layout_path page_index layer_name start_mm end_mm stroke_width],
+          %w[mutation layout_path page_index layer_name start_mm end_mm stroke_width style_id],
           'SketchUp MCP: Add LayOut Line'
         )
         return result if result
@@ -296,6 +296,7 @@ module Giaokhoa
           style = entity.style
           style.stroke_width = finite_number(payload['stroke_width'])
           entity.style = style
+          apply_layout_template_style!(doc, entity, payload['style_id'])
           doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
           tag_layout_entity(entity, context.operation_id)
           doc.save
@@ -311,7 +312,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.rectangle.add',
           payload,
-          %w[mutation layout_path page_index layer_name bounds_mm stroke_width],
+          %w[mutation layout_path page_index layer_name bounds_mm stroke_width style_id],
           'SketchUp MCP: Add LayOut Rectangle'
         )
         return result if result
@@ -325,6 +326,7 @@ module Giaokhoa
           style.solid_filled = false
           style.pattern_filled = false
           entity.style = style
+          apply_layout_template_style!(doc, entity, payload['style_id'])
           doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
           tag_layout_entity(entity, context.operation_id)
           doc.save
