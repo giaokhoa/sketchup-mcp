@@ -347,10 +347,10 @@ module Giaokhoa
                           [0.0, 0.0, mm(65)])
         dimensions.concat(horizontal_chain('front-door', 'front', top, doors, [0.0, 0.0, -mm(90)]))
 
-        overall_x = min_x(top)
+        front_height_x = min_x(leg_left)
         dimensions << dim('front-height', 'front', leg_left,
-                          [overall_x, min_y(leg_left), min_z(leg_left)],
-                          top, [overall_x, top_front_y, max_z(top)],
+                          [front_height_x, min_y(leg_left), min_z(leg_left)],
+                          top, [front_height_x, top_front_y, max_z(top)],
                           [-mm(100), 0.0, 0.0])
         dimensions << vertical_size_dim('front-leg-height', 'front', leg_left, [mm(100), 0.0, 0.0])
         dimensions << vertical_size_dim('front-door-height', 'front', doors.first, [mm(100), 0.0, 0.0])
@@ -363,9 +363,11 @@ module Giaokhoa
                           [section_x, min_y(top), max_z(top)],
                           top, [section_x, max_y(top), max_z(top)],
                           [0.0, 0.0, mm(100)])
+        section_height_x = min_x(leg_left)
+        section_height_y = min_y(leg_left)
         dimensions << dim('section-a-height', 'section_a', leg_left,
-                          [section_x, min_y(leg_left), min_z(leg_left)],
-                          top, [section_x, min_y(top), max_z(top)],
+                          [section_height_x, section_height_y, min_z(leg_left)],
+                          top, [section_height_x, section_height_y, max_z(top)],
                           [0.0, -mm(100), 0.0])
         dimensions << depth_size_dim('section-a-drawer-front-thickness', 'section_a', drawer_front, [0.0, 0.0, mm(60)])
         dimensions << depth_size_dim('section-a-drawer-board-thickness', 'section_a', drawer_box_front, [0.0, 0.0, mm(45)])
@@ -398,9 +400,10 @@ module Giaokhoa
                           top, [max_x(top), max_y(top), max_z(top)],
                           [0.0, 0.0, mm(100)])
         dimensions << depth_size_dim('side-carcass-depth', 'side', parts.fetch(:side_right), [0.0, 0.0, mm(60)])
+        side_height_y = min_y(leg_left)
         dimensions << dim('side-height', 'side', leg_left,
-                          [max_x(top), min_y(leg_left), min_z(leg_left)],
-                          top, [max_x(top), min_y(top), max_z(top)],
+                          [min_x(leg_left), side_height_y, min_z(leg_left)],
+                          top, [min_x(leg_left), side_height_y, max_z(top)],
                           [0.0, -mm(100), 0.0])
         dimensions << vertical_size_dim('side-top-thickness', 'side', top, [0.0, mm(90), 0.0])
         dimensions << vertical_size_dim('side-shelf-thickness', 'side', shelf_left, [0.0, mm(90), 0.0])
@@ -452,6 +455,9 @@ module Giaokhoa
       end
 
       def dim(id, view_id, start_node, start_point, end_node, end_point, offset)
+        validate_point_in_node_bounds!(id, 'start', start_node, start_point)
+        validate_point_in_node_bounds!(id, 'end', end_node, end_point)
+
         {
           'id' => id,
           'view_id' => view_id,
@@ -465,6 +471,17 @@ module Giaokhoa
           },
           'offset' => point_hash(offset)
         }
+      end
+
+      def validate_point_in_node_bounds!(dimension_id, endpoint, node, point)
+        tolerance = 0.001
+        box = node.bounds
+        inside = point[0].between?(box.min.x - tolerance, box.max.x + tolerance) &&
+                 point[1].between?(box.min.y - tolerance, box.max.y + tolerance) &&
+                 point[2].between?(box.min.z - tolerance, box.max.z + tolerance)
+        return if inside
+
+        raise "dimension #{dimension_id} #{endpoint} point is outside #{node.name} bounds"
       end
 
       def note_lines(parts)
