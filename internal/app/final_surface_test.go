@@ -72,6 +72,7 @@ func TestFinalDemoSurfaceIsExactAndDiscoverable(t *testing.T) {
 		EntityMaterialSetToolName,
 		EntityNameSetToolName,
 		AssemblyCreateToolName,
+		LayoutA3SheetCreateToolName,
 		ModelSummaryToolName,
 		SelectionGetToolName,
 		SessionsListToolName,
