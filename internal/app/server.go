@@ -32,6 +32,7 @@ const (
 	ModelUndoToolName          = "changes.undo"
 	LayoutDocumentCreateToolName = "layout.document.create"
 	LayoutTemplateInspectToolName = "layout.template.inspect"
+	LayoutPanelValidateToolName = "layout.panel.validate"
 	LayoutViewportAddToolName = "layout.viewport.add"
 	LayoutDimensionAddToolName = "layout.dimension.add"
 	LayoutTextAddToolName = "layout.text.add"
@@ -160,6 +161,7 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 	addPresentationTools(server, service)
 	addLayoutPrimitiveTools(server, service)
 	addLayoutTemplateTools(server, service)
+	addLayoutValidationTools(server, service)
 	return server
 }
 
