@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/giaokhoa/sketchup-mcp/internal/bridge"
+	"github.com/giaokhoa/sketchup-mcp/internal/layoutgen"
 	"github.com/giaokhoa/sketchup-mcp/internal/model"
 	"github.com/giaokhoa/sketchup-mcp/internal/sessions"
 	"github.com/giaokhoa/sketchup-mcp/internal/version"
@@ -37,6 +38,10 @@ type SessionService interface {
 }
 
 func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
+	return NewServerWithLayoutRunner(logger, service, layoutgen.NewSiblingRunner())
+}
+
+func NewServerWithLayoutRunner(logger *slog.Logger, service SessionService, layoutRunner layoutgen.Runner) *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "sketchup-mcp", Version: version.Version},
 		&mcp.ServerOptions{
@@ -146,7 +151,7 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 	})
 
 	addMutationTools(server, service)
-	addLayoutTools(server, service)
+	addLayoutTools(server, service, layoutRunner)
 	return server
 }
 
