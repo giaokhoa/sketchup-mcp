@@ -51,6 +51,7 @@ type ModelBoundsOutput struct {
 	SessionID string     `json:"session_id,omitempty"`
 	ModelGUID string     `json:"model_guid,omitempty"`
 	Revision  uint64     `json:"revision"`
+	Empty      bool       `json:"empty"`
 	MinMM     Point3MM   `json:"min_mm"`
 	MaxMM     Point3MM   `json:"max_mm"`
 	SizeMM    Point3MM   `json:"size_mm"`
