@@ -12,6 +12,7 @@ import subprocess
 from package_rbz import ARCHIVE_NAME, build as build_rbz
 
 EXE_NAME = "sketchup-mcp-windows-amd64.exe"
+WORKER_NAME = "layout-worker.exe"
 SUMS_NAME = "SHA256SUMS.txt"
 
 
@@ -28,7 +29,7 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build_exe(repo_root: Path, output: Path) -> None:
+def build_go_windows(repo_root: Path, output: Path, package: str) -> None:
     env = os.environ.copy()
     env.update(
         {
@@ -45,7 +46,7 @@ def build_exe(repo_root: Path, output: Path) -> None:
             "-buildvcs=false",
             "-o",
             str(output),
-            "./cmd/sketchup-mcp",
+            package,
         ],
         cwd=repo_root,
         env=env,
@@ -53,7 +54,7 @@ def build_exe(repo_root: Path, output: Path) -> None:
 
 
 def write_checksums(output_dir: Path) -> None:
-    names = [EXE_NAME, ARCHIVE_NAME]
+    names = [EXE_NAME, WORKER_NAME, ARCHIVE_NAME]
     lines = [f"{sha256(output_dir / name)}  {name}\n" for name in names]
     (output_dir / SUMS_NAME).write_text("".join(lines), encoding="ascii", newline="\n")
 
@@ -72,13 +73,15 @@ def main() -> None:
         run(["go", "test", "./..."], cwd=repo_root)
 
     exe = output_dir / EXE_NAME
+    worker = output_dir / WORKER_NAME
     rbz = output_dir / ARCHIVE_NAME
 
-    build_exe(repo_root, exe)
+    build_go_windows(repo_root, exe, "./cmd/sketchup-mcp")
+    build_go_windows(repo_root, worker, "./cmd/layout-worker")
     build_rbz(repo_root, rbz)
     write_checksums(output_dir)
 
-    for name in (EXE_NAME, ARCHIVE_NAME, SUMS_NAME):
+    for name in (EXE_NAME, WORKER_NAME, ARCHIVE_NAME, SUMS_NAME):
         print(output_dir / name)
 
 
