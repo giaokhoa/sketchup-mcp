@@ -73,14 +73,31 @@ class MutationEngineTest < Minitest::Test
   end
 
   class FakeChildEntities
-    attr_reader :last_face
+    attr_reader :last_face, :members
 
-    def initialize(model)
+    def initialize(model, owner = nil)
       @model = model
+      @owner = owner
+      @members = []
     end
 
     def add_face(_points)
       @last_face = FakeFace.new(@model)
+    end
+
+    def adopt(entities)
+      entities.each do |entity|
+        entity.set_parent(@owner)
+        @members << entity
+      end
+    end
+
+    def each(&block)
+      @members.each(&block)
+    end
+
+    def length
+      @members.length
     end
   end
 
@@ -88,20 +105,30 @@ class MutationEngineTest < Minitest::Test
     attr_reader :persistent_id, :transform_count, :entities, :name
     attr_accessor :raise_on_transform, :material
 
-    def initialize(model:, persistent_id:, type: 'Group', locked: false, valid: true)
+    def initialize(model:, persistent_id:, type: 'Group', locked: false, valid: true, parent: nil)
       @model = model
+      @parent = parent || model
       @persistent_id = persistent_id
       @type = type
       @locked = locked
       @valid = valid
       @transform_count = 0
-      @entities = FakeChildEntities.new(model)
+      @entities = FakeChildEntities.new(model, self)
       @raise_on_transform = false
       @name = ''
     end
 
     def typename
       @type
+    end
+
+    def parent
+      @parent
+    end
+
+    def set_parent(value)
+      @parent = value
+      self
     end
 
     def locked?
@@ -182,17 +209,37 @@ class MutationEngineTest < Minitest::Test
   class FakeEntities
     attr_reader :groups
 
-    def initialize(model)
+    def initialize(model, owner = nil)
       @model = model
+      @owner = owner || model
       @groups = []
     end
 
-    def add_group
-      group = FakeEntity.new(model: @model, persistent_id: @model.next_persistent_id)
+    def add_group(existing = nil)
+      group = FakeEntity.new(
+        model: @model,
+        persistent_id: @model.next_persistent_id,
+        parent: @owner
+      )
       @groups << group
       @model.register(group)
+      if existing
+        children = Array(existing)
+        @groups -= children
+        group.entities.adopt(children)
+        @model.record_grouping(self, group, children)
+      end
       @model.mark_changed
       group
+    end
+
+    def restore_grouping(group, children)
+      @groups.delete(group)
+      @model.unregister(group)
+      children.each do |child|
+        child.set_parent(@owner)
+        @groups << child unless @groups.include?(child)
+      end
     end
   end
 
@@ -214,6 +261,7 @@ class MutationEngineTest < Minitest::Test
       @abort_count = 0
       @last_erased = nil
       @last_name_change = nil
+      @last_grouping = nil
     end
 
     def add_observer(observer)
@@ -236,9 +284,17 @@ class MutationEngineTest < Minitest::Test
       @active_path
     end
 
+    def entities
+      @active_entities
+    end
+
     def register(entity)
       @lookup[entity.persistent_id] = entity
       entity
+    end
+
+    def unregister(entity)
+      @lookup.delete(entity.persistent_id)
     end
 
     def erase(entity)
@@ -254,6 +310,10 @@ class MutationEngineTest < Minitest::Test
 
     def record_name_change(entity, previous_name)
       @last_name_change ||= [entity, previous_name]
+    end
+
+    def record_grouping(parent_entities, group, children)
+      @last_grouping = [parent_entities, group, children]
     end
 
     def find_entity_by_persistent_id(id)
@@ -300,6 +360,11 @@ class MutationEngineTest < Minitest::Test
         @last_erased.restore!
         @lookup[@last_erased.persistent_id] = @last_erased
         @last_erased = nil
+      end
+      if @last_grouping
+        parent_entities, group, children = @last_grouping
+        parent_entities.restore_grouping(group, children)
+        @last_grouping = nil
       end
       if @last_name_change
         entity, previous_name = @last_name_change
@@ -706,5 +771,70 @@ class MutationEngineTest < Minitest::Test
     refute long.fetch(:ok)
     assert_equal 'INVALID_REQUEST', long.fetch(:error).fetch('code')
     assert_equal 0, @model.start_count
+  end
+
+  def assembly_payload(operation_id:, revision: 0, children:, name: 'Assembly')
+    envelope(
+      operation_id: operation_id,
+      revision: revision,
+      undo_label: 'SketchUp MCP: Create Assembly'
+    ).merge(
+      'name' => name,
+      'children' => children.map { |entity| entity_ref(entity, revision: revision) }
+    )
+  end
+
+  def test_assembly_create_preserves_child_pids_replays_and_undoes
+    second = @model.register(FakeEntity.new(model: @model, persistent_id: 43))
+    @model.entities.groups.concat([@entity, second])
+    payload = assembly_payload(
+      operation_id: 'assembly-once',
+      children: [@entity, second],
+      name: 'Drawer Assembly - Left'
+    )
+
+    first = @engine.create_assembly(payload)
+    replay = @engine.create_assembly(payload)
+
+    assert first.fetch(:ok)
+    assert_equal first, replay
+    output = first.fetch(:payload)
+    assert_equal 'Drawer Assembly - Left', output.fetch('name')
+    assert_equal [42, 43], output.fetch('children').map { |ref| ref.fetch('persistent_id') }
+    assert_equal 1, output.fetch('revision')
+    assert_equal 1, @model.start_count
+    assert_equal 1, @model.commit_count
+    assert_equal @model.find_entity_by_persistent_id(42), @entity
+    assert_equal @model.find_entity_by_persistent_id(43), second
+
+    undo = @engine.undo(
+      envelope(operation_id: 'undo-assembly', revision: 1, undo_label: 'SketchUp MCP: Undo')
+    )
+    assert undo.fetch(:ok)
+    assert_equal @model, @entity.parent
+    assert_equal @model, second.parent
+    assert_equal 2, undo.fetch(:payload).fetch('revision')
+  end
+
+  def test_assembly_rejects_stale_and_mixed_parent_children
+    second = @model.register(FakeEntity.new(model: @model, persistent_id: 43))
+    @model.observer.onTransactionCommit(@model)
+    stale = @engine.create_assembly(
+      assembly_payload(operation_id: 'assembly-stale', children: [@entity, second])
+    )
+    refute stale.fetch(:ok)
+    assert_equal 'STALE_REVISION', stale.fetch(:error).fetch('code')
+
+    fresh_state = ModelState.new
+    fresh_state.track(@model)
+    engine = MutationEngine.new(session_id: SESSION_ID, model_state: fresh_state)
+    nested_parent = FakeEntity.new(model: @model, persistent_id: 80)
+    second.set_parent(nested_parent)
+    mixed = engine.create_assembly(
+      assembly_payload(operation_id: 'assembly-mixed', revision: 0, children: [@entity, second])
+    )
+    refute mixed.fetch(:ok)
+    assert_equal 'ASSEMBLY_PARENT_MISMATCH', mixed.fetch(:error).fetch('code')
+    fresh_state.stop
   end
 end
