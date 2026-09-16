@@ -130,6 +130,41 @@ module Giaokhoa
         end
       end
 
+      def set_name(payload)
+        context, result = prepare_request(
+          'entity.name.set',
+          payload,
+          %w[mutation entity_ref name],
+          'SketchUp MCP: Set Entity Name'
+        )
+        return result if result
+
+        entity, entity_error = resolve_entity(context, payload['entity_ref'])
+        return entity_error if entity_error
+
+        name = payload['name']
+        unless name.is_a?(String) && !name.strip.empty? && name.bytesize <= 128
+          return invalid('name must be a non-empty string up to 128 bytes')
+        end
+        if entity.respond_to?(:name) && entity.name.to_s == name
+          return invalid('name must differ from the current entity name')
+        end
+
+        perform_operation(context, 'SketchUp MCP: Set Entity Name') do
+          entity.name = name
+          unless entity.respond_to?(:name) && entity.name.to_s == name
+            raise OperationFailure, 'entity name was not applied'
+          end
+
+          lambda do |post_snapshot|
+            {
+              'entity_ref' => reference_for(entity, post_snapshot),
+              'name' => entity.name.to_s
+            }
+          end
+        end
+      end
+
       def create_box(payload)
         context, result = prepare_request(
           'geometry.create_box',
@@ -365,7 +400,7 @@ module Giaokhoa
             nil,
             error(
               'ENTITY_TYPE_NOT_SUPPORTED',
-              "entity type #{type} cannot be translated",
+              "entity type #{type} is not supported by mutations",
               'entity_type' => type,
               'supported_types' => SUPPORTED_ENTITY_TYPES
             )

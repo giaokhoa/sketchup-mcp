@@ -66,6 +66,25 @@ func addMutationTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        EntityNameSetToolName,
+		Description: "Set a bounded human-readable name on one SketchUp group or component instance for structured Outliner navigation.",
+		Annotations: mutationAnnotations(false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.NameSetInput) (*mcp.CallToolResult, model.NameSetOutput, error) {
+		var output model.NameSetOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, EntityNameSetToolName, input.BridgePayload(), &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.NameSetOutput{}, err
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        BoxCreateToolName,
 		Description: "Create one grouped rectangular box with an explicit origin and positive dimensions.",
 		Annotations: mutationAnnotations(false),

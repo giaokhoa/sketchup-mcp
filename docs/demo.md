@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 9 |
+| Local MCP tools | 10 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -105,6 +105,7 @@ entity.inspect
 entity.translate
 entity.delete
 entity.material.set
+entity.name.set
 geometry.create_box
 changes.undo
 ```
@@ -121,7 +122,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly nine MCP tools discovered;
+- exactly ten MCP tools discovered;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
@@ -206,6 +207,42 @@ Do not assert that a fresh SketchUp template contains only two materials:
 SketchUp may preload additional template materials. The acceptance check is the
 material attached to the target entities, not the total material collection
 size.
+
+## Structured cabinet naming smoke - issue #19
+
+The practical cabinet was rebuilt in a fresh SketchUp instance with the
+packaged #19 artifact as **34 independently editable Groups**. The parts include
+individual carcass boards, shelves, four legs, four doors, six drawer-box boards
+per drawer, and six handles.
+
+Every Group was named through `entity.name.set`. Examples include:
+
+```text
+Carcass - Side Left
+Carcass - Center Divider
+Door - 01
+Drawer Left - Side Left
+Drawer Left - Bottom
+Leg - Front Right
+Handle - Door 04
+```
+
+Live mutation safety checks passed before the final model was built:
+
+- exact rename replay did not advance revision twice;
+- `changes.undo` restored the previous Group name;
+- a rename using the pre-undo revision returned `STALE_REVISION`.
+
+Final readback:
+
+- `entity.inspect`: 34/34 expected names matched;
+- `selection.get` after selecting the cabinet: 34 selected, 34 returned,
+  34 unique non-empty Group names;
+- overall cabinet width: **1800.000 mm**;
+- SketchUp remained responsive.
+
+The names are instance/group names intended for practical Outliner navigation;
+the MCP does not rename shared ComponentDefinition objects.
 
 ## Known local-demo limitations
 
