@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"io"
 	"log/slog"
 	"os"
@@ -46,7 +47,10 @@ func (s *layoutService) Call(_ context.Context, _ string, operation string, _ an
 
 func TestLayoutToolUsesSingleSketchUpBridgeOperation(t *testing.T) {
 	ctx := context.Background()
-	preview := []byte("native-preview-png")
+	preview, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	if err != nil {
+		t.Fatalf("decode preview fixture: %v", err)
+	}
 	previewPath := filepath.Join(t.TempDir(), "cabinet.png")
 	if err := os.WriteFile(previewPath, preview, 0o600); err != nil {
 		t.Fatalf("write preview: %v", err)
