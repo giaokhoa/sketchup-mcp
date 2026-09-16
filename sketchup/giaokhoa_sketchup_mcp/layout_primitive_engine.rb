@@ -131,8 +131,8 @@ module Giaokhoa
 
           start_pid = payload['start_pid_path'].to_s
           end_pid = payload['end_pid_path'].to_s
-          start_connection = Layout::ConnectionPoint.new(viewport, start_3d, start_pid)
-          end_connection = Layout::ConnectionPoint.new(viewport, end_3d, end_pid)
+          start_connection = start_pid.empty? ? Layout::ConnectionPoint.new(viewport, start_3d) : Layout::ConnectionPoint.new(viewport, start_3d, start_pid)
+          end_connection = end_pid.empty? ? Layout::ConnectionPoint.new(viewport, end_3d) : Layout::ConnectionPoint.new(viewport, end_3d, end_pid)
           dimension.connect(start_connection, end_connection)
           tag_layout_entity(dimension, context.operation_id)
           doc.save
