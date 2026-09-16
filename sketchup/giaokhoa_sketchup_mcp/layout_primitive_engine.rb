@@ -85,6 +85,7 @@ module Giaokhoa
         end
 
         slots = []
+        panels = []
         styles = []
         doc.pages.each_with_index do |page, page_index|
           page.entities.each do |entity|
@@ -110,6 +111,19 @@ module Giaokhoa
                 ).to_f,
                 'perspective' => entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'perspective', false) == true
               }
+            elsif role == 'panel'
+              bounds = entity.bounds
+              upper_left = bounds.upper_left
+              panels << {
+                'panel_id' => entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'panel_id', '').to_s,
+                'page_index' => page_index,
+                'bounds_mm' => {
+                  'x' => inches_to_layout_mm(upper_left.x),
+                  'y' => inches_to_layout_mm(upper_left.y),
+                  'width' => inches_to_layout_mm(bounds.width),
+                  'height' => inches_to_layout_mm(bounds.height)
+                }
+              }
             elsif role == 'style_sample'
               styles << {
                 'style_id' => entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'style_id', '').to_s,
@@ -131,6 +145,7 @@ module Giaokhoa
           'pages' => pages,
           'layers' => layers,
           'slots' => slots,
+          'panels' => panels,
           'styles' => styles,
           'auto_text_types' => auto_text_types
         )
@@ -146,7 +161,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.viewport.add',
           payload,
-          %w[mutation layout_path skp_path page_index layer_name bounds_mm scene_name standard_view perspective scale_denominator render_mode],
+          %w[mutation layout_path skp_path page_index layer_name bounds_mm scene_name standard_view perspective scale_denominator render_mode panel_id require_fit fit_model_bounds_mm fit_margin_mm],
           'SketchUp MCP: Add LayOut Viewport'
         )
         return result if result
@@ -182,13 +197,43 @@ module Giaokhoa
           viewport.render_mode = layout_render_mode(payload['render_mode'])
           viewport.display_background = false
           doc.add_entity(viewport, resolve_layout_layer(doc, payload['layer_name']), page)
-          tag_layout_entity(viewport, context.operation_id)
+          tag_layout_entity(viewport, context.operation_id, payload['panel_id'])
           viewport.render
+
+          fit_checked = payload['require_fit'] == true
+          projected_bounds_mm = nil
+          fits_bounds = true
+          if fit_checked
+            projected_bounds = projected_model_bounds(viewport, payload['fit_model_bounds_mm'])
+            projected_bounds_mm = bounds2d_mm_hash(projected_bounds)
+
+            margin = mm_to_inches(finite_number(payload['fit_margin_mm']) || 0.0)
+            allowed = viewport.bounds
+            left = allowed.upper_left.x + margin
+            top = allowed.upper_left.y + margin
+            right = allowed.lower_right.x - margin
+            bottom = allowed.lower_right.y - margin
+
+            fits_bounds =
+              projected_bounds.upper_left.x >= left &&
+              projected_bounds.upper_left.y >= top &&
+              projected_bounds.lower_right.x <= right &&
+              projected_bounds.lower_right.y <= bottom
+
+            unless fits_bounds
+              raise OperationFailure,
+                    "viewport projected model bounds do not fit: projected=#{bounds2d_mm_hash(projected_bounds)} viewport=#{bounds2d_mm_hash(allowed)} margin_mm=#{inches_to_layout_mm(margin)}"
+            end
+          end
+
           doc.save
 
           {
             'layout_path' => payload['layout_path'],
-            'entity_ref' => layout_entity_ref(payload['layout_path'], payload['page_index'], context.operation_id)
+            'entity_ref' => layout_entity_ref(payload['layout_path'], payload['page_index'], context.operation_id),
+            'fit_checked' => fit_checked,
+            'fits_bounds' => fits_bounds,
+            'projected_bounds_mm' => projected_bounds_mm
           }
         end
       end
@@ -197,7 +242,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.dimension.add',
           payload,
-          %w[mutation layout_path page_index layer_name viewport_ref start_point_mm end_point_mm start_pid_path end_pid_path offset_mm alignment style_id],
+          %w[mutation layout_path page_index layer_name viewport_ref start_point_mm end_point_mm start_pid_path end_pid_path offset_mm alignment style_id panel_id],
           'SketchUp MCP: Add LayOut Dimension'
         )
         return result if result
@@ -234,7 +279,7 @@ module Giaokhoa
           start_connection = start_pid.empty? ? Layout::ConnectionPoint.new(viewport, start_3d) : Layout::ConnectionPoint.new(viewport, start_3d, start_pid)
           end_connection = end_pid.empty? ? Layout::ConnectionPoint.new(viewport, end_3d) : Layout::ConnectionPoint.new(viewport, end_3d, end_pid)
           dimension.connect(start_connection, end_connection)
-          tag_layout_entity(dimension, context.operation_id)
+          tag_layout_entity(dimension, context.operation_id, payload['panel_id'])
           doc.save
 
           {
@@ -249,7 +294,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.text.add',
           payload,
-          %w[mutation layout_path page_index layer_name bounds_mm text font_size_pt bold alignment style_id],
+          %w[mutation layout_path page_index layer_name bounds_mm text font_size_pt bold alignment style_id panel_id],
           'SketchUp MCP: Add LayOut Text'
         )
         return result if result
@@ -268,7 +313,7 @@ module Giaokhoa
           entity.style = style
           apply_layout_template_style!(doc, entity, payload['style_id'])
           doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
-          tag_layout_entity(entity, context.operation_id)
+          tag_layout_entity(entity, context.operation_id, payload['panel_id'])
           doc.save
 
           {
@@ -282,7 +327,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.line.add',
           payload,
-          %w[mutation layout_path page_index layer_name start_mm end_mm stroke_width style_id],
+          %w[mutation layout_path page_index layer_name start_mm end_mm stroke_width style_id panel_id],
           'SketchUp MCP: Add LayOut Line'
         )
         return result if result
@@ -298,7 +343,7 @@ module Giaokhoa
           entity.style = style
           apply_layout_template_style!(doc, entity, payload['style_id'])
           doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
-          tag_layout_entity(entity, context.operation_id)
+          tag_layout_entity(entity, context.operation_id, payload['panel_id'])
           doc.save
 
           {
@@ -312,7 +357,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.rectangle.add',
           payload,
-          %w[mutation layout_path page_index layer_name bounds_mm stroke_width style_id],
+          %w[mutation layout_path page_index layer_name bounds_mm stroke_width style_id panel_id],
           'SketchUp MCP: Add LayOut Rectangle'
         )
         return result if result
@@ -328,7 +373,7 @@ module Giaokhoa
           entity.style = style
           apply_layout_template_style!(doc, entity, payload['style_id'])
           doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
-          tag_layout_entity(entity, context.operation_id)
+          tag_layout_entity(entity, context.operation_id, payload['panel_id'])
           doc.save
 
           {
@@ -336,6 +381,69 @@ module Giaokhoa
             'entity_ref' => layout_entity_ref(payload['layout_path'], payload['page_index'], context.operation_id)
           }
         end
+      end
+
+      def validate_layout_panel(payload)
+        required = %w[layout_path page_index panel_id margin_mm]
+        return invalid('payload fields are invalid') unless payload.is_a?(Hash) && payload.keys.sort == required
+
+        doc = open_layout_document(payload['layout_path'])
+        page = layout_page(doc, payload['page_index'])
+        panel_id = payload['panel_id'].to_s.strip
+        return invalid('panel_id is required') if panel_id.empty?
+
+        panel = nil
+        page.entities.each do |entity|
+          next unless entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'role', nil) == 'panel'
+          next unless entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'panel_id', '').to_s == panel_id
+          panel = entity
+          break
+        end
+        return error('LAYOUT_PANEL_NOT_FOUND', 'template panel not found', 'panel_id' => panel_id) unless panel
+
+        margin = mm_to_inches(finite_number(payload['margin_mm']) || 0.0)
+        panel_bounds = panel.bounds
+        left = panel_bounds.upper_left.x + margin
+        top = panel_bounds.upper_left.y + margin
+        right = panel_bounds.lower_right.x - margin
+        bottom = panel_bounds.lower_right.y - margin
+
+        violations = []
+        entity_count = 0
+        page.entities.each do |entity|
+          next unless entity.get_attribute(LAYOUT_ATTR_DICTIONARY, 'panel_id', '').to_s == panel_id
+          entity_count += 1
+
+          drawing = axis_aligned_drawing_bounds(entity)
+          fits =
+            drawing.upper_left.x >= left &&
+            drawing.upper_left.y >= top &&
+            drawing.lower_right.x <= right &&
+            drawing.lower_right.y <= bottom
+          next if fits
+
+          violations << {
+            'entity_id' => entity.get_attribute(LAYOUT_ATTR_DICTIONARY, LAYOUT_ATTR_ENTITY_ID, '').to_s,
+            'entity_type' => entity.class.to_s,
+            'bounds_mm' => bounds2d_mm_hash(drawing)
+          }
+        end
+
+        ok(
+          'layout_path' => payload['layout_path'],
+          'page_index' => payload['page_index'],
+          'panel_id' => panel_id,
+          'panel_bounds_mm' => bounds2d_mm_hash(panel_bounds),
+          'entity_count' => entity_count,
+          'fits' => violations.empty?,
+          'violations' => violations
+        )
+      rescue StandardError => e
+        error(
+          'LAYOUT_PANEL_VALIDATION_FAILED',
+          'LayOut panel validation failed',
+          'reason' => e.message.to_s
+        )
       end
 
       def export_layout_document(payload)
@@ -511,8 +619,49 @@ module Giaokhoa
         }.fetch(normalized) { raise OperationFailure, "unsupported dimension alignment: #{value}" }
       end
 
-      def tag_layout_entity(entity, entity_id)
+      def tag_layout_entity(entity, entity_id, panel_id = nil)
         entity.set_attribute(LAYOUT_ATTR_DICTIONARY, LAYOUT_ATTR_ENTITY_ID, entity_id)
+        requested_panel = panel_id.to_s.strip
+        entity.set_attribute(LAYOUT_ATTR_DICTIONARY, 'panel_id', requested_panel) unless requested_panel.empty?
+      end
+
+      def projected_model_bounds(viewport, value)
+        raise OperationFailure, 'fit_model_bounds_mm must be an object' unless value.is_a?(Hash)
+        min = value['min_mm']
+        max = value['max_mm']
+        min_point = layout_point3d_mm(min)
+        max_point = layout_point3d_mm(max)
+
+        corners = [
+          [min_point.x, min_point.y, min_point.z],
+          [min_point.x, min_point.y, max_point.z],
+          [min_point.x, max_point.y, min_point.z],
+          [min_point.x, max_point.y, max_point.z],
+          [max_point.x, min_point.y, min_point.z],
+          [max_point.x, min_point.y, max_point.z],
+          [max_point.x, max_point.y, min_point.z],
+          [max_point.x, max_point.y, max_point.z]
+        ].map { |coords| viewport.model_to_paper_point(Geom::Point3d.new(*coords)) }
+
+        xs = corners.map(&:x)
+        ys = corners.map(&:y)
+        Geom::Bounds2d.new(xs.min, ys.min, xs.max - xs.min, ys.max - ys.min)
+      end
+
+      def axis_aligned_drawing_bounds(entity)
+        points = entity.drawing_bounds.to_a
+        xs = points.map(&:x)
+        ys = points.map(&:y)
+        Geom::Bounds2d.new(xs.min, ys.min, xs.max - xs.min, ys.max - ys.min)
+      end
+
+      def bounds2d_mm_hash(bounds)
+        {
+          'x' => inches_to_layout_mm(bounds.upper_left.x),
+          'y' => inches_to_layout_mm(bounds.upper_left.y),
+          'width' => inches_to_layout_mm(bounds.width),
+          'height' => inches_to_layout_mm(bounds.height)
+        }
       end
 
       def resolve_layout_entity(doc, ref, klass)
