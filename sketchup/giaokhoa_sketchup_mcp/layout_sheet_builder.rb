@@ -121,8 +121,8 @@ module Giaokhoa
         dimension_count += add_section_b_dimensions(doc, layer, page)
         dimension_count += add_side_dimensions(doc, layer, page)
 
-        saved_layout = doc.save(paths[:layout])
-        raise 'LayOut document save failed' unless saved_layout
+        doc.save(paths[:layout])
+        raise 'LayOut document save failed' unless File.exist?(paths[:layout])
 
         if @export_pdf
           doc.export(paths[:pdf])
