@@ -23,6 +23,7 @@ module Giaokhoa
           'model.file.save_copy',
           'layout.document.create',
           'layout.template.inspect',
+          'layout.panel.validate',
           'layout.viewport.add',
           'layout.dimension.add',
           'layout.text.add',
@@ -96,6 +97,8 @@ module Giaokhoa
             @mutation_engine.create_layout_document(payload)
           when 'layout.template.inspect'
             @mutation_engine.inspect_layout_template(payload)
+          when 'layout.panel.validate'
+            @mutation_engine.validate_layout_panel(payload)
           when 'layout.viewport.add'
             @mutation_engine.add_layout_viewport(payload)
           when 'layout.dimension.add'
