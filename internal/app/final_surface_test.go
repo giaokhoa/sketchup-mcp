@@ -77,9 +77,9 @@ func TestFinalDemoSurfaceIsExactAndDiscoverable(t *testing.T) {
 	}
 
 	readOnly := map[string]bool{
-		SessionsListToolName: true,
-		ModelSummaryToolName: true,
-		SelectionGetToolName: true,
+		SessionsListToolName:  true,
+		ModelSummaryToolName:  true,
+		SelectionGetToolName:  true,
 		EntityInspectToolName: true,
 	}
 	for _, tool := range result.Tools {
