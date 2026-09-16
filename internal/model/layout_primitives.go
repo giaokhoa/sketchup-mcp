@@ -164,8 +164,8 @@ type LayoutDimensionAddInput struct {
 	ViewportRef LayoutEntityRef `json:"viewport_ref"`
 	StartPointMM LayoutPoint3MM `json:"start_point_mm"`
 	EndPointMM LayoutPoint3MM `json:"end_point_mm"`
-	StartPIDPath string `json:"start_pid_path"`
-	EndPIDPath string `json:"end_pid_path"`
+	StartPIDPath string `json:"start_pid_path,omitempty" jsonschema:"optional SketchUp persistent ID for a deep connection"`
+	EndPIDPath string `json:"end_pid_path,omitempty" jsonschema:"optional SketchUp persistent ID for a deep connection"`
 	OffsetMM float64 `json:"offset_mm" jsonschema:"signed paper-space distance from measured points to the dimension line in millimeters"`
 	Alignment string `json:"alignment" jsonschema:"auto horizontal vertical or aligned"`
 }
@@ -178,7 +178,6 @@ func (i LayoutDimensionAddInput) Validate() error {
 	if i.ViewportRef.LayoutPath != i.LayoutPath || i.ViewportRef.PageIndex != i.PageIndex { return errors.New("viewport_ref must target the same layout_path and page_index") }
 	if err := i.StartPointMM.Validate(); err != nil { return err }
 	if err := i.EndPointMM.Validate(); err != nil { return err }
-	if strings.TrimSpace(i.StartPIDPath) == "" || strings.TrimSpace(i.EndPIDPath) == "" { return errors.New("start_pid_path and end_pid_path are required") }
 	if !finite(i.OffsetMM) || i.OffsetMM == 0 { return errors.New("offset_mm must be finite and non-zero") }
 	switch strings.ToLower(i.Alignment) {
 	case "auto", "horizontal", "vertical", "aligned":
