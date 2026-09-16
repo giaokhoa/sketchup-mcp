@@ -146,7 +146,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.viewport.add',
           payload,
-          %w[mutation layout_path skp_path page_index bounds_mm scene_name standard_view perspective scale_denominator render_mode],
+          %w[mutation layout_path skp_path page_index layer_name bounds_mm scene_name standard_view perspective scale_denominator render_mode],
           'SketchUp MCP: Add LayOut Viewport'
         )
         return result if result
@@ -181,7 +181,7 @@ module Giaokhoa
           end
           viewport.render_mode = layout_render_mode(payload['render_mode'])
           viewport.display_background = false
-          doc.add_entity(viewport, doc.layers.first, page)
+          doc.add_entity(viewport, resolve_layout_layer(doc, payload['layer_name']), page)
           tag_layout_entity(viewport, context.operation_id)
           viewport.render
           doc.save
@@ -197,7 +197,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.dimension.add',
           payload,
-          %w[mutation layout_path page_index viewport_ref start_point_mm end_point_mm start_pid_path end_pid_path offset_mm alignment],
+          %w[mutation layout_path page_index layer_name viewport_ref start_point_mm end_point_mm start_pid_path end_pid_path offset_mm alignment style_id],
           'SketchUp MCP: Add LayOut Dimension'
         )
         return result if result
@@ -226,7 +226,8 @@ module Giaokhoa
           style.set_dimension_units(Layout::Style::DECIMAL_MILLIMETERS, 0.1)
           style.suppress_dimension_units = true
           dimension.style = style
-          doc.add_entity(dimension, doc.layers.first, page)
+          apply_layout_template_style!(doc, dimension, payload['style_id'])
+          doc.add_entity(dimension, resolve_layout_layer(doc, payload['layer_name']), page)
 
           start_pid = payload['start_pid_path'].to_s
           end_pid = payload['end_pid_path'].to_s
@@ -248,7 +249,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.text.add',
           payload,
-          %w[mutation layout_path page_index bounds_mm text font_size_pt bold alignment],
+          %w[mutation layout_path page_index layer_name bounds_mm text font_size_pt bold alignment style_id],
           'SketchUp MCP: Add LayOut Text'
         )
         return result if result
@@ -265,7 +266,8 @@ module Giaokhoa
           style.text_bold = payload['bold'] == true
           style.text_alignment = layout_text_alignment(payload['alignment'])
           entity.style = style
-          doc.add_entity(entity, doc.layers.first, page)
+          apply_layout_template_style!(doc, entity, payload['style_id'])
+          doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
           tag_layout_entity(entity, context.operation_id)
           doc.save
 
@@ -280,7 +282,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.line.add',
           payload,
-          %w[mutation layout_path page_index start_mm end_mm stroke_width],
+          %w[mutation layout_path page_index layer_name start_mm end_mm stroke_width],
           'SketchUp MCP: Add LayOut Line'
         )
         return result if result
@@ -294,7 +296,7 @@ module Giaokhoa
           style = entity.style
           style.stroke_width = finite_number(payload['stroke_width'])
           entity.style = style
-          doc.add_entity(entity, doc.layers.first, page)
+          doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
           tag_layout_entity(entity, context.operation_id)
           doc.save
 
@@ -309,7 +311,7 @@ module Giaokhoa
         context, result = prepare_request(
           'layout.rectangle.add',
           payload,
-          %w[mutation layout_path page_index bounds_mm stroke_width],
+          %w[mutation layout_path page_index layer_name bounds_mm stroke_width],
           'SketchUp MCP: Add LayOut Rectangle'
         )
         return result if result
@@ -323,7 +325,7 @@ module Giaokhoa
           style.solid_filled = false
           style.pattern_filled = false
           entity.style = style
-          doc.add_entity(entity, doc.layers.first, page)
+          doc.add_entity(entity, resolve_layout_layer(doc, payload['layer_name']), page)
           tag_layout_entity(entity, context.operation_id)
           doc.save
 
@@ -433,6 +435,36 @@ module Giaokhoa
         z = finite_number(value['z'])
         raise OperationFailure, 'model point values are invalid' unless x && y && z
         Geom::Point3d.new(mm_to_inches(x), mm_to_inches(y), mm_to_inches(z))
+      end
+
+      def resolve_layout_layer(doc, name)
+        requested = name.to_s.strip
+        return doc.layers.first if requested.empty?
+
+        layer = doc.layers.find { |candidate| candidate.name.to_s == requested }
+        raise OperationFailure, "LayOut layer not found: #{requested}" unless layer
+        layer
+      end
+
+      def apply_layout_template_style!(doc, target, style_id)
+        requested = style_id.to_s.strip
+        return if requested.empty?
+
+        source = nil
+        doc.pages.each do |page|
+          page.entities.each do |entity|
+            next unless entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'role', nil) == 'style_sample'
+            next unless entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'style_id', '').to_s == requested
+            source = entity
+            break
+          end
+          break if source
+        end
+        raise OperationFailure, "LayOut template style not found: #{requested}" unless source
+
+        source_style = source.style
+        raise OperationFailure, "LayOut template style has no style object: #{requested}" unless source_style
+        target.style = source_style
       end
 
       def layout_standard_view(value)
