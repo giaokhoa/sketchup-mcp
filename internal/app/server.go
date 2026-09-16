@@ -31,6 +31,7 @@ const (
 	ModelSaveCopyToolName      = "model.file.save_copy"
 	ModelUndoToolName          = "changes.undo"
 	LayoutDocumentCreateToolName = "layout.document.create"
+	LayoutTemplateInspectToolName = "layout.template.inspect"
 	LayoutViewportAddToolName = "layout.viewport.add"
 	LayoutDimensionAddToolName = "layout.dimension.add"
 	LayoutTextAddToolName = "layout.text.add"
@@ -158,6 +159,7 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 	addMutationTools(server, service)
 	addPresentationTools(server, service)
 	addLayoutPrimitiveTools(server, service)
+	addLayoutTemplateTools(server, service)
 	return server
 }
 
