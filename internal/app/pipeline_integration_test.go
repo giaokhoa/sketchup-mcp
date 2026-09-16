@@ -180,8 +180,8 @@ func (f *pipelineBridge) serve() {
 	}
 	if writePipelineFrame(conn, map[string]any{
 		"type": "hello", "protocol_version": bridge.ProtocolVersion,
-		"session_id": pipelineSessionID,
-		"server_nonce": "99999999-8888-4777-8666-555555555555",
+		"session_id":        pipelineSessionID,
+		"server_nonce":      "99999999-8888-4777-8666-555555555555",
 		"max_message_bytes": bridge.MaxMessageBytes,
 	}) != nil {
 		return
@@ -211,8 +211,8 @@ func (f *pipelineBridge) serve() {
 		switch request.Operation {
 		case "session.info":
 			response = pipelineSuccess(request.ID, map[string]any{
-				"session_id": pipelineSessionID,
-				"pid": 4321,
+				"session_id":       pipelineSessionID,
+				"pid":              4321,
 				"sketchup_version": "26.0.429",
 				"model": map[string]any{
 					"guid": pipelineModelGUID, "title": "Pipeline", "revision": 7,
@@ -222,15 +222,15 @@ func (f *pipelineBridge) serve() {
 			response = pipelineSuccess(request.ID, map[string]any{
 				"session_id": pipelineSessionID,
 				"model_guid": pipelineModelGUID,
-				"revision": 7,
-				"title": "Pipeline",
+				"revision":   7,
+				"title":      "Pipeline",
 			})
 		case BoxCreateToolName:
 			response = map[string]any{
 				"type": "response", "protocol_version": bridge.ProtocolVersion,
 				"id": request.ID, "ok": false,
 				"error": map[string]any{
-					"code": model.ErrorStaleRevision,
+					"code":    model.ErrorStaleRevision,
 					"message": "model revision changed; refresh context before mutating",
 					"details": map[string]any{
 						"expected_revision": 6, "actual_revision": 7,
