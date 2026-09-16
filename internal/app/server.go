@@ -16,6 +16,7 @@ import (
 const (
 	SessionsListToolName    = "sketchup.sessions.list"
 	ModelSummaryToolName    = "model.summary"
+	ModelBoundsToolName     = "model.bounds"
 	SelectionGetToolName    = "selection.get"
 	EntityInspectToolName      = "entity.inspect"
 	EntityChildrenListToolName = "entity.children.list"
@@ -25,6 +26,9 @@ const (
 	EntityNameSetToolName     = "entity.name.set"
 	AssemblyCreateToolName     = "assembly.create"
 	BoxCreateToolName          = "geometry.create_box"
+	SectionPlaneCreateToolName = "section_plane.create"
+	SceneCreateToolName        = "scene.create"
+	ModelSaveCopyToolName      = "model.file.save_copy"
 	ModelUndoToolName          = "changes.undo"
 	LayoutA3SheetCreateToolName = "layout.a3_sheet.create"
 	LayoutDocumentCreateToolName = "layout.document.create"
@@ -153,6 +157,7 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 	})
 
 	addMutationTools(server, service)
+	addPresentationTools(server, service)
 	addLayoutTools(server, service)
 	addLayoutPrimitiveTools(server, service)
 	return server
