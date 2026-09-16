@@ -168,3 +168,32 @@ type InspectOutput struct {
 	Entity           *EntityDetails `json:"entity,omitempty"`
 	Error            *ToolError     `json:"error,omitempty"`
 }
+
+type ChildrenInput EntityRef
+
+func (i ChildrenInput) Ref() EntityRef {
+	return EntityRef(i)
+}
+
+func (i ChildrenInput) Validate() error {
+	return i.Ref().Validate()
+}
+
+type ChildEntity struct {
+	Ref      *EntityRef `json:"ref,omitempty"`
+	Type     string     `json:"type"`
+	Name     string     `json:"name,omitempty"`
+	Material string     `json:"material,omitempty"`
+	Error    *ToolError `json:"error,omitempty"`
+}
+
+type ChildrenOutput struct {
+	CurrentRevision     uint64        `json:"current_revision"`
+	RevisionMismatch    bool          `json:"revision_mismatch"`
+	RawEntityCount      int           `json:"raw_entity_count"`
+	SupportedChildCount int           `json:"supported_child_count"`
+	ReturnedCount       int           `json:"returned_count"`
+	Truncated           bool          `json:"truncated"`
+	Children            []ChildEntity `json:"children"`
+	Error               *ToolError    `json:"error,omitempty"`
+}
