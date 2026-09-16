@@ -188,7 +188,7 @@ func (i SceneCreateInput) BridgePayload() any {
 		Perspective          bool           `json:"perspective"`
 		OrthographicHeightMM float64        `json:"orthographic_height_mm"`
 		FOVDegrees           float64        `json:"fov_degrees"`
-		SectionPlaneRef      *EntityRef     `json:"section_plane_ref,omitempty"`
+		SectionPlaneRef      *EntityRef     `json:"section_plane_ref"`
 		DisplaySectionPlane  bool           `json:"display_section_plane"`
 	}{
 		Mutation:             i.bridgeMutation("SketchUp MCP: Create Scene"),
