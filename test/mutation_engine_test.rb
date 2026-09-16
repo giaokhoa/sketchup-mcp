@@ -85,7 +85,7 @@ class MutationEngineTest < Minitest::Test
   end
 
   class FakeEntity
-    attr_reader :persistent_id, :transform_count, :entities
+    attr_reader :persistent_id, :transform_count, :entities, :name
     attr_accessor :raise_on_transform, :material
 
     def initialize(model:, persistent_id:, type: 'Group', locked: false, valid: true)
@@ -97,6 +97,7 @@ class MutationEngineTest < Minitest::Test
       @transform_count = 0
       @entities = FakeChildEntities.new(model)
       @raise_on_transform = false
+      @name = ''
     end
 
     def typename
@@ -134,6 +135,18 @@ class MutationEngineTest < Minitest::Test
       @material = value
       @model.mark_changed
       value
+    end
+
+    def name=(value)
+      @model.record_name_change(self, @name)
+      @name = value
+      @model.mark_changed
+      value
+    end
+
+    def restore_name(value)
+      @name = value
+      self
     end
   end
 
@@ -200,6 +213,7 @@ class MutationEngineTest < Minitest::Test
       @commit_count = 0
       @abort_count = 0
       @last_erased = nil
+      @last_name_change = nil
     end
 
     def add_observer(observer)
@@ -236,6 +250,10 @@ class MutationEngineTest < Minitest::Test
 
     def set_active_path(path)
       @active_path = path
+    end
+
+    def record_name_change(entity, previous_name)
+      @last_name_change ||= [entity, previous_name]
     end
 
     def find_entity_by_persistent_id(id)
@@ -282,6 +300,11 @@ class MutationEngineTest < Minitest::Test
         @last_erased.restore!
         @lookup[@last_erased.persistent_id] = @last_erased
         @last_erased = nil
+      end
+      if @last_name_change
+        entity, previous_name = @last_name_change
+        entity.restore_name(previous_name)
+        @last_name_change = nil
       end
       @observer.onTransactionUndo(self)
     end
@@ -603,6 +626,85 @@ class MutationEngineTest < Minitest::Test
     assert_equal 'ENTITY_TYPE_NOT_SUPPORTED', delete_result.fetch(:error).fetch('code')
     refute material_result.fetch(:ok)
     assert_equal 'ENTITY_TYPE_NOT_SUPPORTED', material_result.fetch(:error).fetch('code')
+    assert_equal 0, @model.start_count
+  end
+
+  def name_payload(operation_id:, revision: 0, entity: @entity, name: 'Side Left')
+    envelope(
+      operation_id: operation_id,
+      revision: revision,
+      undo_label: 'SketchUp MCP: Set Entity Name'
+    ).merge(
+      'entity_ref' => entity_ref(entity, revision: revision),
+      'name' => name
+    )
+  end
+
+  def test_name_set_is_idempotent_and_returns_refreshed_reference
+    payload = name_payload(operation_id: 'name-once', name: 'Side Left')
+
+    first = @engine.set_name(payload)
+    replay = @engine.set_name(payload)
+
+    assert first.fetch(:ok)
+    assert_equal first, replay
+    output = first.fetch(:payload)
+    assert_equal 'Side Left', @entity.name
+    assert_equal 'Side Left', output.fetch('name')
+    assert_equal 1, output.fetch('revision')
+    assert_equal 1, output.fetch('entity_ref').fetch('revision')
+    assert_equal 1, @model.start_count
+    assert_equal 1, @model.commit_count
+  end
+
+  def test_name_set_undo_restores_previous_name
+    @entity.name = 'Old Name'
+    @model.instance_variable_set(:@last_name_change, nil)
+    @model.instance_variable_set(:@changed, false)
+
+    result = @engine.set_name(name_payload(operation_id: 'name-new', name: 'New Name'))
+    assert result.fetch(:ok)
+    assert_equal 'New Name', @entity.name
+
+    undo = @engine.undo(
+      envelope(operation_id: 'undo-name', revision: 1, undo_label: 'SketchUp MCP: Undo')
+    )
+    assert undo.fetch(:ok)
+    assert_equal 'Old Name', @entity.name
+    assert_equal 2, undo.fetch(:payload).fetch('revision')
+  end
+
+  def test_name_set_rejects_stale_and_unsupported_target
+    @model.observer.onTransactionCommit(@model)
+    stale = @engine.set_name(name_payload(operation_id: 'stale-name'))
+    refute stale.fetch(:ok)
+    assert_equal 'STALE_REVISION', stale.fetch(:error).fetch('code')
+
+    fresh_state = ModelState.new
+    fresh_state.track(@model)
+    engine = MutationEngine.new(session_id: SESSION_ID, model_state: fresh_state)
+    face = @model.register(FakeEntity.new(model: @model, persistent_id: 46, type: 'Face'))
+    unsupported = engine.set_name(
+      name_payload(operation_id: 'name-face', revision: 0, entity: face, name: 'Face')
+    )
+    refute unsupported.fetch(:ok)
+    assert_equal 'ENTITY_TYPE_NOT_SUPPORTED', unsupported.fetch(:error).fetch('code')
+    fresh_state.stop
+  end
+
+  def test_name_set_rejects_blank_same_and_oversized_names
+    blank = @engine.set_name(name_payload(operation_id: 'name-blank', name: '   '))
+    refute blank.fetch(:ok)
+    assert_equal 'INVALID_REQUEST', blank.fetch(:error).fetch('code')
+
+    @entity.restore_name('Same')
+    same = @engine.set_name(name_payload(operation_id: 'name-same', name: 'Same'))
+    refute same.fetch(:ok)
+    assert_equal 'INVALID_REQUEST', same.fetch(:error).fetch('code')
+
+    long = @engine.set_name(name_payload(operation_id: 'name-long', name: 'x' * 129))
+    refute long.fetch(:ok)
+    assert_equal 'INVALID_REQUEST', long.fetch(:error).fetch('code')
     assert_equal 0, @model.start_count
   end
 end
