@@ -33,7 +33,7 @@ func (s *layoutService) Call(_ context.Context, _ string, operation string, _ an
 		SKPPath:                 "/tmp/out\\cabinet.skp",
 		LayOutPath:              "/tmp/out\\cabinet.layout",
 		PDFPath:                 "/tmp/out\\cabinet.pdf",
-		PNGPath:                 "/tmp/out\\cabinet.png",
+		PNGPath:                 s.previewPath,
 		PageWidthMM:             420,
 		PageHeightMM:            297,
 		ViewportCount:           6,
