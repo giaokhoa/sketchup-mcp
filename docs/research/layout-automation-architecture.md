@@ -1,157 +1,169 @@
-# LayOut automation architecture research
+# LayOut automation architecture
 
-Verified: 2026-09-16
+Verified: **2026-09-16**
 
 Issue: #23
 
-This note intentionally re-evaluates the implementation before more LayOut code
-is added.
+## Decision
 
-## Repositories studied
+The documentation pipeline is:
 
-### 1. Vaalasar/SketchUp-SDK-2024
+```text
+live SketchUp model
+  -> documentation.snapshot.create
+  -> saved .skp snapshot + drawing spec
+  -> standalone layout-worker.exe
+  -> LayOut C API runtime
+  -> editable .layout + PDF + PNG + QA JSON
+```
 
-This repository mirrors the official SketchUp Desktop SDK samples.
+LayOut is downstream from the SketchUp model. The worker never edits model
+geometry and does not automate either SketchUp.exe or LayOut.exe.
 
-Relevant samples:
+## Why not the LayOut Ruby API
 
-- `GenerateLayOutFromSkp`
-- `LayOutExporter`
-- `RubyExampleCreateLayOut`
-- `WritingToALayOutFile`
+The LayOut Ruby API is useful, but Trimble documents it as available only from
+inside SketchUp. The first prototype proved it could create a .layout and PDF,
+but it forced the documentation renderer to live inside the modeling process.
 
-Observed patterns:
+That architecture caused the wrong lifecycle:
 
-- standalone C API programs call `LOInitialize()` once and `LOTerminate()`
-  once;
-- created references are explicitly released;
-- `GenerateLayOutFromSkp` creates a `LOSketchUpModelRef` directly from a
-  saved .skp, selects existing scenes, adds viewports to a LayOut document, and
-  saves the .layout file;
-- `LayOutExporter` is a separate CLI that opens an existing .layout and exports
-  PDF/PNG/JPG;
-- the Windows standalone project links `SketchUpAPI.lib` and `LayOutAPI.lib`
-  and copies several LayOut runtime DLLs beside the executable;
-- `RubyExampleCreateLayOut` demonstrates the most important documentation
-  behavior for this project: a dimension is attached to a SketchUp viewport
-  through `LOConnectionPointCreateFromPID` and
-  `LOLinearDimensionConnectTo`, rather than by writing custom dimension text.
+- SketchUp had to remain open for paper-space rendering;
+- reloading documentation code encouraged SketchUp restarts;
+- recovery prompts appeared after forced restarts;
+- PDF generation and model editing shared one process;
+- early dimension code accidentally hard-coded measurement text.
 
-### 2. jhhsia/sketchup_converter
+The production implementation therefore keeps Ruby on the model side only.
 
-This is a standalone SketchUp C API consumer rather than a LayOut generator.
+## Standalone C API proof on SketchUp 2026
 
-Useful architecture patterns:
+The Windows test machine contains the LayOut 2026 runtime at:
 
-- the Desktop SDK is treated as a build dependency of a small native
-  executable;
-- the process calls `SUInitialize()`, loads a saved model from disk with
-  `SUModelCreateFromFile`, checks API return codes, traverses model data, and
-  releases API objects;
-- resource ownership is handled explicitly; for example SUString is wrapped in
-  a small RAII class;
-- the application works from .skp files without controlling the SketchUp GUI.
+```text
+C:\Program Files\SketchUp\SketchUp 2026\SketchUp\
+```
 
-This confirms that an offline native worker is feasible, but it also confirms
-that it adds a real native toolchain/runtime-distribution boundary.
+It does not contain SDK headers/import libraries. To avoid requiring a C++
+toolchain on the user machine, the worker is a Go executable which dynamically
+loads the documented C ABI from `LayOutAPI.dll`.
 
-## Current official documentation
+A live proof was executed with SketchUp and LayOut GUIs closed:
 
-The current SketchUp documentation states:
+- `LOInitialize` succeeded;
+- `LOGetAPIVersion` returned **11.0**;
+- `LOSketchUpModelCreate` loaded the saved cabinet .skp;
+- `LODocumentCreateEmpty` succeeded;
+- A3 page width/height setters succeeded;
+- the .skp viewport was added to the document;
+- `LODocumentSaveToFile` produced a real .layout;
+- `LODocumentExportToPDF` produced a real PDF.
 
-- the LayOut Ruby API is only available from inside SketchUp;
-- `Layout::SketchUpModel` can reference a saved .skp, use saved scenes or
-  standard Top/Front/Right/Iso views, use orthographic scale, and render
-  Vector/Hybrid/Raster;
-- `Layout::ConnectionPoint.new(sketchup_model, point3d, pid)` creates a deep
-  connection into SketchUp geometry;
-- `Layout::LinearDimension#connect` connects a real dimension to those
-  connection points;
-- with `custom_text = false`, the dimension displays the measured length and
-  updates automatically;
-- `Layout::Document#export` exports both PDF and PNG directly.
+This proves the standalone process boundary against the installed 2026 runtime,
+not merely against headers or a mocked API.
 
-The current LayOut C API is also standalone-capable, but on Windows it requires
-SDK headers/import libraries at build time and multiple LayOut runtime DLLs at
-release time.
+## Build/runtime boundary
 
-## State of the Windows test machine
+The implementation follows the public LayOut C API definitions and official SDK
+sample patterns. The available public SDK mirror was used to inspect headers and
+samples such as:
 
-SketchUp 2026 installs runtime DLLs including:
+- `GenerateLayOutFromSkp`;
+- `LayOutExporter`;
+- `RubyExampleCreateLayOut`;
+- `WritingToALayOutFile`.
 
-- `LayOutAPI.dll`
-- `pdflib.dll`
+The worker does not redistribute SDK headers or libraries. It resolves the
+installed runtime DLL dynamically and checks the runtime API version before
+generation.
 
-but the machine does not contain the SDK headers or `LayOutAPI.lib`.
+## Model-side responsibility
 
-Therefore a new standalone native worker cannot be built correctly from the
-installed application alone. The official Desktop SDK would need to be added as
-a build dependency first.
+The SketchUp bridge operation is intentionally bridge-only:
 
-## Minimal implementation decision
+```text
+documentation.snapshot.create
+```
 
-For #23, do **not** introduce a standalone C++ worker yet.
+It is not exposed as a separate MCP tool. It performs only model/documentation
+preparation:
 
-Use the built-in LayOut Ruby API from the existing SketchUp bridge, because:
+1. require a saved source model;
+2. locate the root structured assembly;
+3. recursively extract named Group/ComponentInstance leaves;
+4. compute world-space bounds from the actual hierarchy;
+5. obtain `Sketchup::InstancePath#persistent_id_path` for dimension targets;
+6. derive section positions from actual drawer/shelf geometry;
+7. create the six saved scenes;
+8. save a versioned .skp snapshot;
+9. return a JSON drawing specification.
 
-1. SketchUp is already open for the MCP modeling workflow.
-2. No second native toolchain or SDK packaging is required.
-3. The Ruby API already exposes the required viewport, scene, scale, deep
-   connection, dimension, .layout save, PDF export, and PNG export functions.
-4. It is the smallest change that can produce technically correct associative
-   dimensions.
-5. The generated .layout can still be opened later in the separate LayOut.exe
-   for human editing; LayOut.exe does not need to be automated.
+No paper-space objects are created inside SketchUp.
 
-A standalone C API worker remains a later packaging/decoupling option, not a
-prerequisite for the first correct sheet.
+## Worker responsibility
 
-## Minimal #23 scope
+`layout-worker.exe` receives only a saved .skp plus the drawing specification.
 
-Keep one MCP tool:
+It:
 
-`layout.a3_sheet.create`
+1. initializes the standalone LayOut C API;
+2. checks the runtime API version;
+3. creates an A3 landscape document;
+4. adds the fixed presentation frame/grid;
+5. creates six SketchUp viewports from the saved scene indexes;
+6. applies orthographic scales from the drawing spec;
+7. creates real linear dimensions from model-space endpoints;
+8. deep-connects both endpoints with
+   `LOConnectionPointCreateFromPID`;
+9. uses decimal-millimeter dimension style with units suppressed;
+10. saves the editable .layout;
+11. exports PDF;
+12. exports PNG directly from the same LayOut document;
+13. writes a machine-readable QA JSON report.
 
-Internally it should do only:
+A3 page/grid coordinates are presentation-template data and may be fixed.
+Furniture dimensions, split locations, gap sizes, panel thicknesses and section
+locations must come from model geometry.
 
-1. preflight a saved/current SketchUp model;
-2. create or reuse the two required section scenes;
-3. save a documentation .skp snapshot;
-4. create one A3 landscape `Layout::Document`;
-5. create six `Layout::SketchUpModel` viewports;
-6. create dimensions from geometry-derived model-space points;
-7. deep-connect dimension endpoints with persistent IDs wherever possible;
-8. never use fixed measurement text;
-9. save .layout;
-10. export PDF and PNG;
-11. return the three output paths plus simple counts.
+## Associative dimensions
 
-## What must be removed from the current prototype
+The official `RubyExampleCreateLayOut` sample demonstrates the required
+pattern:
 
-- hard-coded dimension strings such as `"1800"`, `"438.5"`, `"2"`,
-  `"12"`, and `"18"`;
-- paper-space dimensions that are not connected to model geometry;
-- PDF QA performed through screenshots of a browser/PDF viewer;
-- repeated SketchUp force-kill/restart as part of normal generation.
+```text
+model-space point
+  -> LOSketchUpModelConvertModelPointToPaperPoint
+  -> LOLinearDimensionCreate
+  -> LOConnectionPointCreateFromPID
+  -> LOLinearDimensionConnectTo
+```
 
-A3 page/grid coordinates may remain fixed because they are presentation
-template data, not model geometry.
+The implementation follows that pattern. Dimension text is not supplied as a
+hard-coded measurement string.
 
-## QA
+## QA gates
 
-The same LayOut document should export both:
+A generated sheet is not accepted merely because files exist.
 
-- final PDF;
-- a direct 150-300 dpi PNG of the same page.
+The worker's structural gate requires:
 
-Automated acceptance should verify:
-
+- LayOut runtime API at the validated version boundary;
 - A3 landscape page;
 - six viewports;
-- expected view/scene assignments and scales;
-- no custom measurement text on model dimensions;
-- all required dimensions are connected;
-- PDF and PNG exist.
+- one or more PID-connected dimensions;
+- non-empty .layout;
+- non-empty PDF;
+- non-empty direct PNG export.
 
-Visual review should use the directly exported PNG, not a screenshot of Edge or
-LayOut.
+The MCP tool returns an error if this QA report is not passing.
+
+After that automated gate, acceptance for #23 additionally requires a visual
+review of the direct PNG export against the user-supplied reference layout.
+That review must check viewport composition, dimension collisions, labels and
+readability before the PR is merged.
+
+## Recovery behavior
+
+The repeatable baseline is the explicitly saved source .skp. If SketchUp offers
+to open an autosaved/recovered version during testing, choose **No**. Recovery
+state is never used as input to the documentation pipeline.
