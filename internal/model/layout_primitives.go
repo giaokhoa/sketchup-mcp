@@ -80,15 +80,27 @@ func validateLayoutPath(path string) error {
 type LayoutDocumentCreateInput struct {
 	MutationEnvelope
 	LayoutPath   string  `json:"layout_path" jsonschema:"absolute .layout output path on the SketchUp machine"`
-	PageWidthMM  float64 `json:"page_width_mm" jsonschema:"page width in millimeters"`
-	PageHeightMM float64 `json:"page_height_mm" jsonschema:"page height in millimeters"`
+	TemplatePath string  `json:"template_path,omitempty" jsonschema:"optional absolute .layout template path; when set, page size comes from the template"`
+	PageWidthMM  float64 `json:"page_width_mm,omitempty" jsonschema:"page width in millimeters for blank documents; use 0 with template_path"`
+	PageHeightMM float64 `json:"page_height_mm,omitempty" jsonschema:"page height in millimeters for blank documents; use 0 with template_path"`
 }
 
 func (i LayoutDocumentCreateInput) Validate() error {
 	if err := i.MutationEnvelope.Validate(); err != nil { return err }
 	if err := validateLayoutPath(i.LayoutPath); err != nil { return err }
+
+	if strings.TrimSpace(i.TemplatePath) != "" {
+		if !filepath.IsAbs(i.TemplatePath) || strings.ToLower(filepath.Ext(i.TemplatePath)) != ".layout" {
+			return errors.New("template_path must be an absolute .layout path")
+		}
+		if i.PageWidthMM != 0 || i.PageHeightMM != 0 {
+			return errors.New("page dimensions must be 0 when template_path is provided")
+		}
+		return nil
+	}
+
 	if !finite(i.PageWidthMM) || !finite(i.PageHeightMM) || i.PageWidthMM <= 0 || i.PageHeightMM <= 0 {
-		return errors.New("page dimensions must be positive finite millimeter values")
+		return errors.New("page dimensions must be positive finite millimeter values for blank documents")
 	}
 	return nil
 }
@@ -97,9 +109,10 @@ func (i LayoutDocumentCreateInput) BridgePayload() any {
 	return struct {
 		Mutation BridgeMutation `json:"mutation"`
 		LayoutPath string `json:"layout_path"`
+		TemplatePath string `json:"template_path"`
 		PageWidthMM float64 `json:"page_width_mm"`
 		PageHeightMM float64 `json:"page_height_mm"`
-	}{i.bridgeMutation("SketchUp MCP: Create LayOut Document"), i.LayoutPath, i.PageWidthMM, i.PageHeightMM}
+	}{i.bridgeMutation("SketchUp MCP: Create LayOut Document"), i.LayoutPath, i.TemplatePath, i.PageWidthMM, i.PageHeightMM}
 }
 
 type LayoutViewportAddInput struct {
