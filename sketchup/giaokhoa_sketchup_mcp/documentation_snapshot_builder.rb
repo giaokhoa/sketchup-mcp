@@ -248,10 +248,10 @@ module Giaokhoa
         page.use_section_planes = capture_section
         page.use_rendering_options = true if page.respond_to?(:use_rendering_options=)
 
-        flags = PAGE_USE_CAMERA
+        flags = 0
         flags |= PAGE_USE_SECTION_PLANES if capture_section
         flags |= PAGE_USE_RENDERING_OPTIONS if defined?(PAGE_USE_RENDERING_OPTIONS)
-        page.update(flags)
+        page.update(flags) unless flags.zero?
 
         @model.pages.to_a.index(page) + 1
       end
