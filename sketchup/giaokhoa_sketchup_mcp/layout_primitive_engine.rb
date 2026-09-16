@@ -7,6 +7,7 @@ module Giaokhoa
     class MutationEngine
       LAYOUT_ATTR_DICTIONARY = 'giaokhoa.sketchup_mcp'
       LAYOUT_ATTR_ENTITY_ID = 'entity_id'
+      TEMPLATE_ATTR_DICTIONARY = 'giaokhoa.layout_template'
       MM_PER_INCH = 25.4
 
       def create_layout_document(payload)
@@ -52,6 +53,93 @@ module Giaokhoa
             'template_path' => template_path.empty? ? nil : template_path
           }
         end
+      end
+
+      def inspect_layout_template(payload)
+        required = %w[template_path]
+        return invalid('payload fields are invalid') unless payload.is_a?(Hash) && payload.keys.sort == required
+
+        path = payload['template_path']
+        return invalid('template_path must end in .layout') unless path.is_a?(String) && path.downcase.end_with?('.layout')
+        return error('LAYOUT_TEMPLATE_NOT_FOUND', 'template_path does not exist') unless File.exist?(path)
+
+        doc = Layout::Document.open(path)
+        page_width_mm = inches_to_layout_mm(doc.page_info.width)
+        page_height_mm = inches_to_layout_mm(doc.page_info.height)
+
+        pages = doc.pages.each_with_index.map do |page, index|
+          {
+            'index' => index,
+            'name' => page.name.to_s,
+            'width_mm' => page_width_mm,
+            'height_mm' => page_height_mm
+          }
+        end
+
+        layers = doc.layers.map do |layer|
+          {
+            'name' => layer.name.to_s,
+            'shared' => layer.shared?,
+            'locked' => layer.locked?
+          }
+        end
+
+        slots = []
+        styles = []
+        doc.pages.each_with_index do |page, page_index|
+          page.entities.each do |entity|
+            role = entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'role', nil)
+            next unless role
+
+            if role == 'viewport_slot'
+              bounds = entity.bounds
+              upper_left = bounds.upper_left
+              slots << {
+                'slot_id' => entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'slot_id', '').to_s,
+                'page_index' => page_index,
+                'bounds_mm' => {
+                  'x' => inches_to_layout_mm(upper_left.x),
+                  'y' => inches_to_layout_mm(upper_left.y),
+                  'width' => inches_to_layout_mm(bounds.width),
+                  'height' => inches_to_layout_mm(bounds.height)
+                },
+                'default_scale_denominator' => entity.get_attribute(
+                  TEMPLATE_ATTR_DICTIONARY,
+                  'default_scale_denominator',
+                  0.0
+                ).to_f,
+                'perspective' => entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'perspective', false) == true
+              }
+            elsif role == 'style_sample'
+              styles << {
+                'style_id' => entity.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'style_id', '').to_s,
+                'page_index' => page_index
+              }
+            end
+          end
+        end
+
+        auto_text_types = doc.auto_text_definitions.map do |definition|
+          layout_auto_text_type_name(definition.type)
+        end.compact.uniq.sort
+
+        ok(
+          'template_path' => path,
+          'schema_version' => doc.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'schema_version', 0).to_i,
+          'template_id' => doc.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'template_id', '').to_s,
+          'template_kind' => doc.get_attribute(TEMPLATE_ATTR_DICTIONARY, 'template_kind', '').to_s,
+          'pages' => pages,
+          'layers' => layers,
+          'slots' => slots,
+          'styles' => styles,
+          'auto_text_types' => auto_text_types
+        )
+      rescue StandardError => e
+        error(
+          'LAYOUT_TEMPLATE_INSPECTION_FAILED',
+          'LayOut template inspection failed',
+          'reason' => e.message.to_s
+        )
       end
 
       def add_layout_viewport(payload)
@@ -434,6 +522,24 @@ module Giaokhoa
         when '.jpg', '.jpeg' then 'image/jpeg'
         else 'application/octet-stream'
         end
+      end
+
+      def inches_to_layout_mm(value)
+        value.to_f * MM_PER_INCH
+      end
+
+      def layout_auto_text_type_name(type)
+        mapping = {
+          Layout::AutoTextDefinition::TYPE_MODEL_SCENE_NAME => 'model_scene_name',
+          Layout::AutoTextDefinition::TYPE_MODEL_SCALE => 'model_scale',
+          Layout::AutoTextDefinition::TYPE_MODEL_SECTION_NAME => 'model_section_name',
+          Layout::AutoTextDefinition::TYPE_MODEL_SECTION_SYMBOL => 'model_section_symbol',
+          Layout::AutoTextDefinition::TYPE_PAGE_NAME => 'page_name',
+          Layout::AutoTextDefinition::TYPE_PAGE_NUMBER => 'page_number',
+          Layout::AutoTextDefinition::TYPE_PAGE_COUNT => 'page_count',
+          Layout::AutoTextDefinition::TYPE_FILE => 'file'
+        }
+        mapping[type]
       end
 
       def mm_to_inches(value)
