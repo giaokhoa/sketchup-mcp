@@ -162,3 +162,56 @@ func TestDeleteAndMaterialBridgePayloadsUseMutationEnvelope(t *testing.T) {
 		}
 	}
 }
+
+
+func TestNameSetInputValidatesNameAndReference(t *testing.T) {
+	input := NameSetInput{
+		MutationEnvelope: validEnvelope(),
+		EntityRef:        validRef(),
+		Name:             "Drawer Left Bottom",
+	}
+	if err := input.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	input.Name = "   "
+	if err := input.Validate(); err == nil {
+		t.Fatal("Validate() = nil, want empty-name error")
+	}
+
+	input.Name = strings.Repeat("x", 129)
+	if err := input.Validate(); err == nil {
+		t.Fatal("Validate() = nil, want oversized-name error")
+	}
+
+	input.Name = "Door 1"
+	input.EntityRef.Revision = 6
+	err := input.Validate()
+	if err == nil || !strings.Contains(err.Error(), "revision") {
+		t.Fatalf("Validate() error = %v, want revision mismatch", err)
+	}
+}
+
+func TestNameSetBridgePayloadUsesMutationEnvelope(t *testing.T) {
+	input := NameSetInput{
+		MutationEnvelope: validEnvelope(),
+		EntityRef:        validRef(),
+		Name:             "Side Left",
+	}
+	data, err := json.Marshal(input.BridgePayload())
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	for _, key := range []string{"mutation", "entity_ref", "name"} {
+		if _, ok := payload[key]; !ok {
+			t.Fatalf("payload missing %q: %s", key, data)
+		}
+	}
+	if _, leaked := payload["session_id"]; leaked {
+		t.Fatalf("session_id leaked into bridge payload: %s", data)
+	}
+}
