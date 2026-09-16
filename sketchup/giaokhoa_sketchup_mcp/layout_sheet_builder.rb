@@ -198,12 +198,23 @@ module Giaokhoa
         right = rect.fetch('right') - margin
         bottom = rect.fetch('bottom') - margin
 
-        corners.each do |coords|
-          paper = viewport.model_to_paper_point(Geom::Point3d.new(*coords))
-          next if paper.x.between?(left, right) && paper.y.between?(top, bottom)
-
-          raise "view #{view.fetch('id')} clips model bounds at paper point #{paper.x.round(3)},#{paper.y.round(3)}"
+        projected = corners.map do |coords|
+          viewport.model_to_paper_point(Geom::Point3d.new(*coords))
         end
+        min_x = projected.map(&:x).min
+        max_x = projected.map(&:x).max
+        min_y = projected.map(&:y).min
+        max_y = projected.map(&:y).max
+        fits = min_x >= left && max_x <= right && min_y >= top && max_y <= bottom
+        return if fits
+
+        raise(
+          "view #{view.fetch('id')} clips model bounds: " \
+          "projected x=#{min_x.round(3)}..#{max_x.round(3)} " \
+          "y=#{min_y.round(3)}..#{max_y.round(3)}; " \
+          "viewport x=#{left.round(3)}..#{right.round(3)} " \
+          "y=#{top.round(3)}..#{bottom.round(3)}"
+        )
       end
 
       def add_connected_dimension(doc, layer, page, viewport, spec)
