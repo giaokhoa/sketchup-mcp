@@ -127,6 +127,10 @@ type LayoutViewportAddInput struct {
 	Perspective bool `json:"perspective"`
 	ScaleDenominator float64 `json:"scale_denominator" jsonschema:"orthographic drawing scale denominator such as 10 for 1:10; use 0 for perspective"`
 	RenderMode string `json:"render_mode" jsonschema:"raster hybrid or vector"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
+	RequireFit bool `json:"require_fit,omitempty" jsonschema:"fail before save when projected model bounds do not fit viewport"`
+	FitModelBoundsMM *LayoutModelBoundsMM `json:"fit_model_bounds_mm,omitempty" jsonschema:"required with require_fit; model-space bounds in millimeters"`
+	FitMarginMM float64 `json:"fit_margin_mm,omitempty" jsonschema:"inward paper-space safety margin in millimeters"`
 }
 
 func (i LayoutViewportAddInput) Validate() error {
@@ -153,6 +157,11 @@ func (i LayoutViewportAddInput) Validate() error {
 	case "raster", "hybrid", "vector":
 	default: return errors.New("render_mode must be raster, hybrid, or vector")
 	}
+	if !finite(i.FitMarginMM) || i.FitMarginMM < 0 { return errors.New("fit_margin_mm must be finite and non-negative") }
+	if i.RequireFit {
+		if i.FitModelBoundsMM == nil { return errors.New("fit_model_bounds_mm is required when require_fit is true") }
+		if err := i.FitModelBoundsMM.Validate(); err != nil { return err }
+	}
 	return nil
 }
 
@@ -169,7 +178,11 @@ func (i LayoutViewportAddInput) BridgePayload() any {
 		Perspective bool `json:"perspective"`
 		ScaleDenominator float64 `json:"scale_denominator"`
 		RenderMode string `json:"render_mode"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Viewport"), i.LayoutPath, i.SKPPath, i.PageIndex, i.LayerName, i.BoundsMM, i.SceneName, i.StandardView, i.Perspective, i.ScaleDenominator, i.RenderMode}
+		PanelID string `json:"panel_id"`
+		RequireFit bool `json:"require_fit"`
+		FitModelBoundsMM *LayoutModelBoundsMM `json:"fit_model_bounds_mm"`
+		FitMarginMM float64 `json:"fit_margin_mm"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Viewport"), i.LayoutPath, i.SKPPath, i.PageIndex, i.LayerName, i.BoundsMM, i.SceneName, i.StandardView, i.Perspective, i.ScaleDenominator, i.RenderMode, i.PanelID, i.RequireFit, i.FitModelBoundsMM, i.FitMarginMM}
 }
 
 type LayoutDimensionAddInput struct {
@@ -185,6 +198,7 @@ type LayoutDimensionAddInput struct {
 	OffsetMM float64 `json:"offset_mm" jsonschema:"signed paper-space distance from measured points to the dimension line in millimeters"`
 	Alignment string `json:"alignment" jsonschema:"auto horizontal vertical or aligned"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
 }
 
 func (i LayoutDimensionAddInput) Validate() error {
@@ -217,7 +231,8 @@ func (i LayoutDimensionAddInput) BridgePayload() any {
 		OffsetMM float64 `json:"offset_mm"`
 		Alignment string `json:"alignment"`
 		StyleID string `json:"style_id"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Dimension"), i.LayoutPath, i.PageIndex, i.LayerName, i.ViewportRef, i.StartPointMM, i.EndPointMM, i.StartPIDPath, i.EndPIDPath, i.OffsetMM, i.Alignment, i.StyleID}
+		PanelID string `json:"panel_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Dimension"), i.LayoutPath, i.PageIndex, i.LayerName, i.ViewportRef, i.StartPointMM, i.EndPointMM, i.StartPIDPath, i.EndPIDPath, i.OffsetMM, i.Alignment, i.StyleID, i.PanelID}
 }
 
 type LayoutTextAddInput struct {
@@ -231,6 +246,7 @@ type LayoutTextAddInput struct {
 	Bold bool `json:"bold"`
 	Alignment string `json:"alignment" jsonschema:"left center or right"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
 }
 
 func (i LayoutTextAddInput) Validate() error {
@@ -259,7 +275,8 @@ func (i LayoutTextAddInput) BridgePayload() any {
 		Bold bool `json:"bold"`
 		Alignment string `json:"alignment"`
 		StyleID string `json:"style_id"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Text"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.Text, i.FontSizePT, i.Bold, i.Alignment, i.StyleID}
+		PanelID string `json:"panel_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Text"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.Text, i.FontSizePT, i.Bold, i.Alignment, i.StyleID, i.PanelID}
 }
 
 type LayoutLineAddInput struct {
@@ -271,6 +288,7 @@ type LayoutLineAddInput struct {
 	EndMM LayoutPoint2MM `json:"end_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
 }
 
 func (i LayoutLineAddInput) Validate() error {
@@ -294,7 +312,8 @@ func (i LayoutLineAddInput) BridgePayload() any {
 		EndMM LayoutPoint2MM `json:"end_mm"`
 		StrokeWidth float64 `json:"stroke_width"`
 		StyleID string `json:"style_id"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Line"), i.LayoutPath, i.PageIndex, i.LayerName, i.StartMM, i.EndMM, i.StrokeWidth, i.StyleID}
+		PanelID string `json:"panel_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Line"), i.LayoutPath, i.PageIndex, i.LayerName, i.StartMM, i.EndMM, i.StrokeWidth, i.StyleID, i.PanelID}
 }
 
 type LayoutRectangleAddInput struct {
@@ -305,6 +324,7 @@ type LayoutRectangleAddInput struct {
 	BoundsMM LayoutRectMM `json:"bounds_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
 }
 
 func (i LayoutRectangleAddInput) Validate() error {
@@ -325,7 +345,8 @@ func (i LayoutRectangleAddInput) BridgePayload() any {
 		BoundsMM LayoutRectMM `json:"bounds_mm"`
 		StrokeWidth float64 `json:"stroke_width"`
 		StyleID string `json:"style_id"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Rectangle"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.StrokeWidth, i.StyleID}
+		PanelID string `json:"panel_id"`
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Rectangle"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.StrokeWidth, i.StyleID, i.PanelID}
 }
 
 type LayoutExportInput struct {
@@ -374,6 +395,9 @@ type LayoutEntityOutput struct {
 	LayoutPath string `json:"layout_path,omitempty"`
 	EntityRef *LayoutEntityRef `json:"entity_ref,omitempty"`
 	Connected bool `json:"connected,omitempty"`
+	FitChecked bool `json:"fit_checked,omitempty"`
+	FitsBounds bool `json:"fits_bounds,omitempty"`
+	ProjectedBoundsMM *LayoutRectMM `json:"projected_bounds_mm,omitempty"`
 	Error *ToolError `json:"error,omitempty"`
 }
 
