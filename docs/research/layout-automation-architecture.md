@@ -155,6 +155,26 @@ Acceptance requires:
 
 Browser/PDF-viewer screenshots are not acceptance evidence.
 
+## MCP preview transport
+
+The final local flow returns the directly exported full-sheet PNG as standard
+MCP `ImageContent` in the same `layout.a3_sheet.create` response that carries
+the typed structured result.
+
+The Go server reads the generated PNG bytes and returns:
+
+```go
+&mcp.ImageContent{Data: previewBytes, MIMEType: "image/png"}
+```
+
+This avoids a separate Base64/file-transfer loop for direct MCP clients.
+
+Desktop Commander can also read the generated PDF and returns text plus image
+content blocks, but when Desktop Commander is itself called through an
+additional orchestration wrapper those image blocks may be flattened into text.
+That wrapper limitation is not part of the SketchUp MCP protocol and is not
+used as the production preview transport.
+
 ## Recovery behavior
 
 The repeatable input is the explicitly saved source .skp. When SketchUp offers a
