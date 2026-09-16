@@ -345,7 +345,11 @@ module Giaokhoa
                           [mid_x, top_front_y, top_front_z],
                           top, [max_x(top), top_front_y, top_front_z],
                           [0.0, 0.0, mm(65)])
-        dimensions.concat(horizontal_chain('front-door', 'front', top, doors, [0.0, 0.0, -mm(90)]))
+        dimensions.concat(horizontal_chain(
+          'front-door', 'front',
+          parts.fetch(:side_left), parts.fetch(:side_right), doors,
+          [0.0, 0.0, -mm(90)]
+        ))
 
         front_height_x = min_x(leg_left)
         dimensions << dim('front-height', 'front', leg_left,
@@ -388,7 +392,11 @@ module Giaokhoa
                           [mid_x, top_front_y, top_front_z],
                           top, [max_x(top), top_front_y, top_front_z],
                           [0.0, 0.0, mm(65)])
-        dimensions.concat(horizontal_chain('section-b-door', 'section_b', top, doors, [0.0, 0.0, -mm(90)]))
+        dimensions.concat(horizontal_chain(
+          'section-b-door', 'section_b',
+          parts.fetch(:side_left), parts.fetch(:side_right), doors,
+          [0.0, 0.0, -mm(90)]
+        ))
         dimensions << dim('section-b-shelf-level', 'section_b', bottom,
                           [min_x(bottom), min_y(bottom), max_z(bottom)],
                           shelf_left, [min_x(shelf_left), min_y(shelf_left), max_z(shelf_left)],
@@ -411,13 +419,13 @@ module Giaokhoa
         dimensions
       end
 
-      def horizontal_chain(prefix, view_id, top, doors, offset)
+      def horizontal_chain(prefix, view_id, left_side, right_side, doors, offset)
         result = []
         z = min_z(doors.first)
         y = min_y(doors.first)
 
-        result << dim("#{prefix}-left-reveal", view_id, top,
-                      [min_x(top), y, z],
+        result << dim("#{prefix}-left-reveal", view_id, left_side,
+                      [min_x(left_side), y, z],
                       doors.first, [min_x(doors.first), y, z],
                       offset)
 
@@ -437,7 +445,7 @@ module Giaokhoa
 
         result << dim("#{prefix}-right-reveal", view_id, doors.last,
                       [max_x(doors.last), y, z],
-                      top, [max_x(top), y, z],
+                      right_side, [max_x(right_side), y, z],
                       offset)
         result
       end
