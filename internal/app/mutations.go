@@ -1,0 +1,77 @@
+package app
+
+import (
+	"context"
+
+	"github.com/giaokhoa/sketchup-mcp/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+func addMutationTools(server *mcp.Server, service SessionService) {
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        EntityTranslateToolName,
+		Description: "Translate an existing SketchUp group or component instance using a durable EntityRef and stale-write protection.",
+		Annotations: mutationAnnotations(false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.TranslateInput) (*mcp.CallToolResult, model.TranslateOutput, error) {
+		var output model.TranslateOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, EntityTranslateToolName, input.BridgePayload(), &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.TranslateOutput{}, err
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        BoxCreateToolName,
+		Description: "Create one grouped rectangular box with an explicit origin and positive dimensions.",
+		Annotations: mutationAnnotations(false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.CreateBoxInput) (*mcp.CallToolResult, model.CreateBoxOutput, error) {
+		var output model.CreateBoxOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, BoxCreateToolName, input.BridgePayload(), &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.CreateBoxOutput{}, err
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        ModelUndoToolName,
+		Description: "Undo the latest SketchUp operation using the verified SketchUp undo API and report the resulting model revision.",
+		Annotations: mutationAnnotations(true),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.UndoInput) (*mcp.CallToolResult, model.UndoOutput, error) {
+		var output model.UndoOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, ModelUndoToolName, input.BridgePayload(), &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.UndoOutput{}, err
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+}
+
+func mutationAnnotations(destructive bool) *mcp.ToolAnnotations {
+	no := false
+	return &mcp.ToolAnnotations{
+		ReadOnlyHint:    false,
+		IdempotentHint:  true,
+		DestructiveHint: &destructive,
+		OpenWorldHint:   &no,
+	}
+}

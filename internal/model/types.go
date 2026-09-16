@@ -12,6 +12,15 @@ const (
 	ErrorEntityNotFound                = "ENTITY_NOT_FOUND"
 	ErrorEntityTypeNotSupported        = "ENTITY_TYPE_NOT_SUPPORTED"
 	ErrorEntityNoSupportedPersistentID = "ENTITY_HAS_NO_SUPPORTED_PERSISTENT_ID"
+	ErrorStaleRevision                 = "STALE_REVISION"
+	ErrorOperationIDReuse              = "OPERATION_ID_REUSE"
+	ErrorOperationInProgress           = "OPERATION_IN_PROGRESS"
+	ErrorInvalidEntityReference        = "INVALID_ENTITY_REFERENCE"
+	ErrorEntityDeleted                 = "ENTITY_DELETED"
+	ErrorLockedEntityOrContext         = "LOCKED_ENTITY_OR_CONTEXT"
+	ErrorInvalidDimensions             = "INVALID_DIMENSIONS"
+	ErrorInvalidTransform              = "INVALID_TRANSFORM"
+	ErrorSketchUpOperationFailed       = "SKETCHUP_OPERATION_FAILED"
 )
 
 type ToolError struct {

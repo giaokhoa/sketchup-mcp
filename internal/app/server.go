@@ -14,10 +14,13 @@ import (
 )
 
 const (
-	SessionsListToolName  = "sketchup.sessions.list"
-	ModelSummaryToolName  = "model.summary"
-	SelectionGetToolName  = "selection.get"
-	EntityInspectToolName = "entity.inspect"
+	SessionsListToolName    = "sketchup.sessions.list"
+	ModelSummaryToolName    = "model.summary"
+	SelectionGetToolName    = "selection.get"
+	EntityInspectToolName   = "entity.inspect"
+	EntityTranslateToolName = "entity.translate"
+	BoxCreateToolName       = "geometry.create_box"
+	ModelUndoToolName       = "changes.undo"
 )
 
 type SessionService interface {
@@ -107,6 +110,7 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 		return &mcp.CallToolResult{}, output, nil
 	})
 
+	addMutationTools(server, service)
 	return server
 }
 

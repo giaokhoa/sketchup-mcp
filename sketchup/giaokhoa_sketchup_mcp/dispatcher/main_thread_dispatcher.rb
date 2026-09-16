@@ -72,9 +72,9 @@ module Giaokhoa
                        error = result.fetch(:error)
                        Bridge::Protocol.error_response(
                          request.id,
-                         error.fetch(:code),
-                         error.fetch(:message),
-                         error[:details]
+                         error.fetch('code'),
+                         error.fetch('message'),
+                         error['details']
                        )
                      end
           request.response_queue << response

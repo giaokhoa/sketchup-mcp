@@ -24,6 +24,19 @@ class DispatcherTest < Minitest::Test
     end
   end
 
+  class ErrorRegistry
+    def call(_operation, _payload)
+      {
+        ok: false,
+        error: {
+          'code' => 'STALE_REVISION',
+          'message' => 'model revision changed',
+          'details' => {'expected_revision' => 0, 'actual_revision' => 2}
+        }
+      }
+    end
+  end
+
   def test_executes_queued_command_and_returns_response
     requests = Queue.new
     responses = Queue.new
@@ -74,6 +87,26 @@ class DispatcherTest < Minitest::Test
     dispatcher.drain_once
     assert_empty registry.calls
     assert responses.empty?
+  end
+
+  def test_preserves_string_keyed_structured_domain_errors
+    requests = Queue.new
+    responses = Queue.new
+    requests << request(responses, deadline: 11.0)
+    dispatcher = Dispatcher.new(
+      request_queue: requests,
+      command_registry: ErrorRegistry.new,
+      ui: Object.new,
+      monotonic_clock: -> { 10.0 }
+    )
+
+    dispatcher.drain_once
+    response = responses.pop
+    refute response.fetch('ok')
+    error = response.fetch('error')
+    assert_equal 'STALE_REVISION', error.fetch('code')
+    assert_equal 0, error.fetch('details').fetch('expected_revision')
+    assert_equal 2, error.fetch('details').fetch('actual_revision')
   end
 
   private

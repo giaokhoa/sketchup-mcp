@@ -9,7 +9,10 @@ module Giaokhoa
           'session.info',
           'model.summary',
           'selection.get',
-          'entity.inspect'
+          'entity.inspect',
+          'entity.translate',
+          'geometry.create_box',
+          'changes.undo'
         ].freeze
         MAX_SELECTION_ENTITIES = 100
         SUPPORTED_ENTITY_TYPES = ['Group', 'ComponentInstance'].freeze
@@ -21,9 +24,13 @@ module Giaokhoa
           0 => 'decimal', 1 => 'architectural', 2 => 'engineering', 3 => 'fractional'
         }.freeze
 
-        def initialize(session_id:, model_state:)
+        def initialize(session_id:, model_state:, mutation_engine: nil)
           @session_id = session_id
           @model_state = model_state
+          @mutation_engine = mutation_engine || MutationEngine.new(
+            session_id: session_id,
+            model_state: model_state
+          )
         end
 
         def call(operation, payload)
@@ -44,6 +51,12 @@ module Giaokhoa
             selection_get
           when 'entity.inspect'
             entity_inspect(payload)
+          when 'entity.translate'
+            @mutation_engine.translate(payload)
+          when 'geometry.create_box'
+            @mutation_engine.create_box(payload)
+          when 'changes.undo'
+            @mutation_engine.undo(payload)
           else
             invalid("unsupported operation: #{operation}")
           end
