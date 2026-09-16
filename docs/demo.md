@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 12 |
+| Local MCP tools | 13 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -109,6 +109,7 @@ entity.name.set
 entity.children.list
 assembly.create
 geometry.create_box
+layout.a3_sheet.create
 changes.undo
 ```
 
@@ -124,7 +125,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly twelve MCP tools discovered;
+- exactly thirteen MCP tools discovered;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
@@ -304,6 +305,63 @@ All 34 composed world translations matched their pre-grouping millimeter
 origins within floating-point tolerance. SketchUp chose a non-zero transform for
 the root assembly, but compensated the child transforms so the physical model
 did not move.
+
+## A3 LayOut shop-drawing smoke - issue #23
+
+The saved 1800 mm cabinet model was documented through one MCP call:
+
+```text
+layout.a3_sheet.create
+```
+
+The tool does not automate LayOut.exe. It uses the LayOut Ruby API available
+inside the existing SketchUp extension and produces:
+
+```text
+documentation .skp snapshot
+editable .layout
+PDF
+direct PNG
+```
+
+The drawing spec is model-derived. Furniture measurements are not supplied as
+custom dimension text. Every generated dimension uses real model-space
+endpoints and persistent-id paths, then connects to the matching
+`Layout::SketchUpModel` viewport with `Layout::ConnectionPoint`.
+
+Live packaged-artifact acceptance on SketchUp 2026:
+
+- exactly 13 MCP tools discovered;
+- one A3 landscape page: **420 x 297 mm**;
+- 6 viewports:
+  - MẶT BẰNG;
+  - MẶT ĐỨNG CHÍNH;
+  - MẶT CẮT A-A;
+  - MẶT CẮT B-B;
+  - MẶT BÊN;
+  - PHỐI CẢNH;
+- **46 dimensions created / 46 dimensions connected**;
+- no generated dimension uses custom measurement text;
+- preflight rejects dimension endpoints outside their referenced part bounds;
+- preflight rejects non-axis-aligned shop-drawing dimensions;
+- A3 paper preflight rejects overlapping/out-of-page viewports and labels;
+- PDF semantic readback reported the expected model measurements:
+  - width 1800.0 mm;
+  - 900.0 / 900.0 main split;
+  - four 438.5 mm lower doors;
+  - three 2.0 mm door gaps;
+  - 12.0 mm drawer-box boards;
+  - 18.0 mm adjustable shelf;
+  - 220.0 mm shelf level;
+- the output PDF contains one page and all six expected view labels;
+- the MCP result returns structured output and one native `image/png`
+  `ImageContent` block in the same call;
+- live native preview payload size was **258,874 bytes**;
+- SketchUp remained responsive.
+
+The native preview is the intended review transport for a direct MCP client.
+The server reads the LayOut-exported PNG and returns raw image bytes as standard
+MCP `ImageContent`; callers do not need to parse Base64 or open a PDF viewer.
 
 ## Known local-demo limitations
 
