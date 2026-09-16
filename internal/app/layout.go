@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/giaokhoa/sketchup-mcp/internal/model"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -27,6 +29,17 @@ func addLayoutTools(server *mcp.Server, service SessionService) {
 		if output.Scenes == nil {
 			output.Scenes = []string{}
 		}
-		return &mcp.CallToolResult{}, output, nil
+		if output.PNGPath == "" {
+			return nil, model.LayoutA3SheetOutput{}, fmt.Errorf("layout preview PNG path is empty")
+		}
+		preview, err := os.ReadFile(output.PNGPath)
+		if err != nil {
+			return nil, model.LayoutA3SheetOutput{}, fmt.Errorf("read layout preview PNG: %w", err)
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.ImageContent{Data: preview, MIMEType: "image/png"},
+			},
+		}, output, nil
 	})
 }
