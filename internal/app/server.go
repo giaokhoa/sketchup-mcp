@@ -30,7 +30,6 @@ const (
 	SceneCreateToolName        = "scene.create"
 	ModelSaveCopyToolName      = "model.file.save_copy"
 	ModelUndoToolName          = "changes.undo"
-	LayoutA3SheetCreateToolName = "layout.a3_sheet.create"
 	LayoutDocumentCreateToolName = "layout.document.create"
 	LayoutViewportAddToolName = "layout.viewport.add"
 	LayoutDimensionAddToolName = "layout.dimension.add"
@@ -158,7 +157,6 @@ func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 
 	addMutationTools(server, service)
 	addPresentationTools(server, service)
-	addLayoutTools(server, service)
 	addLayoutPrimitiveTools(server, service)
 	return server
 }
