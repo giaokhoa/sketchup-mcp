@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 9 |
+| Local MCP tools | 10 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -105,6 +105,7 @@ entity.inspect
 entity.translate
 entity.delete
 entity.material.set
+entity.name.set
 geometry.create_box
 changes.undo
 ```
@@ -121,7 +122,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly nine MCP tools discovered;
+- exactly ten MCP tools discovered;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
