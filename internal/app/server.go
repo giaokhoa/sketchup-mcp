@@ -21,6 +21,8 @@ const (
 	EntityTranslateToolName = "entity.translate"
 	BoxCreateToolName       = "geometry.create_box"
 	ModelUndoToolName       = "changes.undo"
+
+	ServerInstructions = "Start with sketchup.sessions.list and choose one live session. Read model.summary before any write and use the returned model GUID and revision. Reuse durable entity references returned by selection.get, entity.inspect, or mutation results. Give every intended write a unique operation_id. If a write returns STALE_REVISION, re-read model state and retry with a new operation_id."
 )
 
 type SessionService interface {
@@ -31,7 +33,11 @@ type SessionService interface {
 func NewServer(logger *slog.Logger, service SessionService) *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "sketchup-mcp", Version: version.Version},
-		&mcp.ServerOptions{Logger: logger, Capabilities: &mcp.ServerCapabilities{}},
+		&mcp.ServerOptions{
+			Logger:       logger,
+			Capabilities: &mcp.ServerCapabilities{},
+			Instructions: ServerInstructions,
+		},
 	)
 
 	mcp.AddTool(server, &mcp.Tool{
