@@ -74,6 +74,7 @@ Initial style IDs:
 - `scale_label`
 - `note`
 - `section_marker`
+- `section_cut`
 - `dimension`
 
 A client may request a style by ID and apply the sample entity's `Layout::Style` to a newly created compatible entity.
