@@ -85,3 +85,80 @@ func TestMutationBridgePayloadUsesADRMutationEnvelope(t *testing.T) {
 		t.Fatalf("session_id belongs to the outer bridge request, not payload: %s", data)
 	}
 }
+
+
+func TestDeleteInputRequiresMatchingDurableReference(t *testing.T) {
+	input := DeleteInput{
+		MutationEnvelope: validEnvelope(),
+		EntityRef:        validRef(),
+	}
+	if err := input.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	input.EntityRef.SessionID = "22222222-2222-4222-8222-222222222222"
+	err := input.Validate()
+	if err == nil || !strings.Contains(err.Error(), "session_id") {
+		t.Fatalf("Validate() error = %v, want session mismatch", err)
+	}
+}
+
+func TestMaterialSetInputValidatesNameAndRGB(t *testing.T) {
+	input := MaterialSetInput{
+		MutationEnvelope: validEnvelope(),
+		EntityRef:        validRef(),
+		Material: MaterialSpec{
+			Name:  "cabinet-light-wood",
+			Color: RGBColor{R: 222, G: 203, B: 176},
+		},
+	}
+	if err := input.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	input.Material.Color.R = 256
+	if err := input.Validate(); err == nil {
+		t.Fatal("Validate() = nil, want invalid RGB")
+	}
+
+	input.Material.Color.R = 222
+	input.Material.Name = "   "
+	if err := input.Validate(); err == nil {
+		t.Fatal("Validate() = nil, want invalid material name")
+	}
+}
+
+func TestDeleteAndMaterialBridgePayloadsUseMutationEnvelope(t *testing.T) {
+	deleteInput := DeleteInput{MutationEnvelope: validEnvelope(), EntityRef: validRef()}
+	materialInput := MaterialSetInput{
+		MutationEnvelope: validEnvelope(),
+		EntityRef:        validRef(),
+		Material: MaterialSpec{
+			Name:  "bronze",
+			Color: RGBColor{R: 145, G: 92, B: 62},
+		},
+	}
+
+	for name, payloadValue := range map[string]any{
+		"delete":   deleteInput.BridgePayload(),
+		"material": materialInput.BridgePayload(),
+	} {
+		data, err := json.Marshal(payloadValue)
+		if err != nil {
+			t.Fatalf("%s json.Marshal() error = %v", name, err)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(data, &payload); err != nil {
+			t.Fatalf("%s json.Unmarshal() error = %v", name, err)
+		}
+		if _, ok := payload["mutation"]; !ok {
+			t.Fatalf("%s payload missing mutation: %s", name, data)
+		}
+		if _, ok := payload["entity_ref"]; !ok {
+			t.Fatalf("%s payload missing entity_ref: %s", name, data)
+		}
+		if _, leaked := payload["session_id"]; leaked {
+			t.Fatalf("%s session_id leaked into bridge payload: %s", name, data)
+		}
+	}
+}

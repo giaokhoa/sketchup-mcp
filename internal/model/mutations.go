@@ -103,6 +103,105 @@ func (i TranslateInput) BridgePayload() any {
 	}
 }
 
+type DeleteInput struct {
+	MutationEnvelope
+	EntityRef EntityRef `json:"entity_ref" jsonschema:"durable persistent-id entity reference to delete"`
+}
+
+func (i DeleteInput) Validate() error {
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := i.EntityRef.Validate(); err != nil {
+		return fmt.Errorf("entity_ref: %w", err)
+	}
+	if i.EntityRef.SessionID != i.SessionID {
+		return errors.New("entity_ref session_id must match session_id")
+	}
+	if i.EntityRef.ModelGUID != i.ExpectedModelGUID {
+		return errors.New("entity_ref model_guid must match expected_model_guid")
+	}
+	if i.EntityRef.Revision != i.ExpectedRevision {
+		return errors.New("entity_ref revision must match expected_revision")
+	}
+	return nil
+}
+
+func (i DeleteInput) BridgePayload() any {
+	return struct {
+		Mutation  BridgeMutation `json:"mutation"`
+		EntityRef EntityRef      `json:"entity_ref"`
+	}{
+		Mutation:  i.bridgeMutation("SketchUp MCP: Delete Entity"),
+		EntityRef: i.EntityRef,
+	}
+}
+
+type RGBColor struct {
+	R int `json:"r" jsonschema:"red channel from 0 through 255"`
+	G int `json:"g" jsonschema:"green channel from 0 through 255"`
+	B int `json:"b" jsonschema:"blue channel from 0 through 255"`
+}
+
+func (c RGBColor) Validate() error {
+	if c.R < 0 || c.R > 255 || c.G < 0 || c.G > 255 || c.B < 0 || c.B > 255 {
+		return errors.New("material color channels must be integers from 0 through 255")
+	}
+	return nil
+}
+
+type MaterialSpec struct {
+	Name  string   `json:"name" jsonschema:"bounded deterministic SketchUp material name"`
+	Color RGBColor `json:"color" jsonschema:"solid RGB color"`
+}
+
+func (m MaterialSpec) Validate() error {
+	if strings.TrimSpace(m.Name) == "" {
+		return errors.New("material name is required")
+	}
+	if len(m.Name) > 128 {
+		return errors.New("material name must be at most 128 bytes")
+	}
+	return m.Color.Validate()
+}
+
+type MaterialSetInput struct {
+	MutationEnvelope
+	EntityRef EntityRef    `json:"entity_ref" jsonschema:"durable persistent-id entity reference"`
+	Material  MaterialSpec `json:"material" jsonschema:"deterministic solid material to assign"`
+}
+
+func (i MaterialSetInput) Validate() error {
+	if err := i.MutationEnvelope.Validate(); err != nil {
+		return err
+	}
+	if err := i.EntityRef.Validate(); err != nil {
+		return fmt.Errorf("entity_ref: %w", err)
+	}
+	if i.EntityRef.SessionID != i.SessionID {
+		return errors.New("entity_ref session_id must match session_id")
+	}
+	if i.EntityRef.ModelGUID != i.ExpectedModelGUID {
+		return errors.New("entity_ref model_guid must match expected_model_guid")
+	}
+	if i.EntityRef.Revision != i.ExpectedRevision {
+		return errors.New("entity_ref revision must match expected_revision")
+	}
+	return i.Material.Validate()
+}
+
+func (i MaterialSetInput) BridgePayload() any {
+	return struct {
+		Mutation  BridgeMutation `json:"mutation"`
+		EntityRef EntityRef      `json:"entity_ref"`
+		Material  MaterialSpec   `json:"material"`
+	}{
+		Mutation:  i.bridgeMutation("SketchUp MCP: Set Material"),
+		EntityRef: i.EntityRef,
+		Material:  i.Material,
+	}
+}
+
 type BoxDimensions struct {
 	Width  float64 `json:"width" jsonschema:"box width in SketchUp internal inches, greater than zero"`
 	Depth  float64 `json:"depth" jsonschema:"box depth in SketchUp internal inches, greater than zero"`
@@ -184,6 +283,28 @@ type CreateBoxOutput struct {
 	Revision    uint64     `json:"revision"`
 	EntityRef   *EntityRef `json:"entity_ref,omitempty"`
 	Error       *ToolError `json:"error,omitempty"`
+}
+
+type DeleteOutput struct {
+	OperationID         string     `json:"operation_id,omitempty"`
+	ModelGUID           string     `json:"model_guid,omitempty"`
+	Revision            uint64     `json:"revision"`
+	DeletedPersistentID int64      `json:"deleted_persistent_id,omitempty"`
+	Error               *ToolError `json:"error,omitempty"`
+}
+
+type MaterialInfo struct {
+	Name  string   `json:"name"`
+	Color RGBColor `json:"color"`
+}
+
+type MaterialSetOutput struct {
+	OperationID string        `json:"operation_id,omitempty"`
+	ModelGUID   string        `json:"model_guid,omitempty"`
+	Revision    uint64        `json:"revision"`
+	EntityRef   *EntityRef    `json:"entity_ref,omitempty"`
+	Material    *MaterialInfo `json:"material,omitempty"`
+	Error       *ToolError    `json:"error,omitempty"`
 }
 
 type UndoOutput MutationOutput

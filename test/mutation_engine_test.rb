@@ -5,6 +5,16 @@ require 'minitest/autorun'
 module Sketchup
   class ModelObserver; end
 
+  class Color
+    attr_reader :red, :green, :blue
+
+    def initialize(red, green, blue)
+      @red = red
+      @green = green
+      @blue = blue
+    end
+  end
+
   class << self
     attr_accessor :active_model, :undo_proc
 
@@ -76,7 +86,7 @@ class MutationEngineTest < Minitest::Test
 
   class FakeEntity
     attr_reader :persistent_id, :transform_count, :entities
-    attr_accessor :raise_on_transform
+    attr_accessor :raise_on_transform, :material
 
     def initialize(model:, persistent_id:, type: 'Group', locked: false, valid: true)
       @model = model
@@ -108,7 +118,54 @@ class MutationEngineTest < Minitest::Test
       @model.mark_changed
       self
     end
+
+    def erase!
+      @model.erase(self)
+      @valid = false
+      nil
+    end
+
+    def restore!
+      @valid = true
+      self
+    end
+
+    def material=(value)
+      @material = value
+      @model.mark_changed
+      value
+    end
   end
+
+  class FakeMaterial
+    attr_reader :name
+    attr_accessor :color, :texture
+
+    def initialize(name)
+      @name = name
+      @texture = nil
+      @color = nil
+    end
+  end
+
+  class FakeMaterials
+    attr_reader :items
+
+    def initialize
+      @items = {}
+    end
+
+    def [](name)
+      @items[name]
+    end
+
+    def add(name)
+      material = FakeMaterial.new(name)
+      @items[name] = material
+      material
+    end
+  end
+
   class FakeEntities
     attr_reader :groups
 
@@ -128,7 +185,7 @@ class MutationEngineTest < Minitest::Test
 
   class FakeModel
     attr_accessor :guid
-    attr_reader :observer, :start_count, :commit_count, :abort_count, :active_entities
+    attr_reader :observer, :start_count, :commit_count, :abort_count, :active_entities, :materials
 
     def initialize(guid: 'guid-a')
       @guid = guid
@@ -136,11 +193,13 @@ class MutationEngineTest < Minitest::Test
       @next_persistent_id = 100
       @active_path = []
       @active_entities = FakeEntities.new(self)
+      @materials = FakeMaterials.new
       @changed = false
       @operation_open = false
       @start_count = 0
       @commit_count = 0
       @abort_count = 0
+      @last_erased = nil
     end
 
     def add_observer(observer)
@@ -166,6 +225,17 @@ class MutationEngineTest < Minitest::Test
     def register(entity)
       @lookup[entity.persistent_id] = entity
       entity
+    end
+
+    def erase(entity)
+      @last_erased = entity
+      @lookup.delete(entity.persistent_id)
+      mark_changed
+      nil
+    end
+
+    def set_active_path(path)
+      @active_path = path
     end
 
     def find_entity_by_persistent_id(id)
@@ -208,6 +278,11 @@ class MutationEngineTest < Minitest::Test
     end
 
     def undo_last
+      if @last_erased
+        @last_erased.restore!
+        @lookup[@last_erased.persistent_id] = @last_erased
+        @last_erased = nil
+      end
       @observer.onTransactionUndo(self)
     end
   end
@@ -403,6 +478,131 @@ class MutationEngineTest < Minitest::Test
 
     refute result.fetch(:ok)
     assert_equal 'INVALID_DIMENSIONS', result.fetch(:error).fetch('code')
+    assert_equal 0, @model.start_count
+  end
+
+  def delete_payload(operation_id:, revision: 0, entity: @entity)
+    envelope(
+      operation_id: operation_id,
+      revision: revision,
+      undo_label: 'SketchUp MCP: Delete Entity'
+    ).merge('entity_ref' => entity_ref(entity, revision: revision))
+  end
+
+  def material_payload(operation_id:, revision: 0, entity: @entity, name: 'oak', rgb: [220, 200, 175])
+    envelope(
+      operation_id: operation_id,
+      revision: revision,
+      undo_label: 'SketchUp MCP: Set Material'
+    ).merge(
+      'entity_ref' => entity_ref(entity, revision: revision),
+      'material' => {
+        'name' => name,
+        'color' => {'r' => rgb[0], 'g' => rgb[1], 'b' => rgb[2]}
+      }
+    )
+  end
+
+  def test_delete_is_idempotent_and_undo_restores_entity
+    payload = delete_payload(operation_id: 'delete-once')
+
+    first = @engine.delete(payload)
+    replay = @engine.delete(payload)
+
+    assert first.fetch(:ok)
+    assert_equal first, replay
+    assert_nil @model.find_entity_by_persistent_id(42)
+    assert_equal 1, first.fetch(:payload).fetch('revision')
+    assert_equal 42, first.fetch(:payload).fetch('deleted_persistent_id')
+
+    undo = @engine.undo(
+      envelope(operation_id: 'undo-delete', revision: 1, undo_label: 'SketchUp MCP: Undo')
+    )
+    assert undo.fetch(:ok)
+    assert_equal @entity, @model.find_entity_by_persistent_id(42)
+    assert_equal 2, undo.fetch(:payload).fetch('revision')
+  end
+
+  def test_delete_rejects_target_in_active_edit_path
+    @model.set_active_path([@entity])
+
+    result = @engine.delete(delete_payload(operation_id: 'delete-active'))
+
+    refute result.fetch(:ok)
+    assert_equal 'LOCKED_ENTITY_OR_CONTEXT', result.fetch(:error).fetch('code')
+    assert_equal @entity, @model.find_entity_by_persistent_id(42)
+    assert_equal 0, @model.start_count
+  end
+
+  def test_material_assignment_is_idempotent_and_reuses_same_material
+    payload = material_payload(operation_id: 'material-once')
+
+    first = @engine.set_material(payload)
+    replay = @engine.set_material(payload)
+
+    assert first.fetch(:ok)
+    assert_equal first, replay
+    assert_equal 1, @model.materials.items.length
+    assert_equal 'oak', @entity.material.name
+    assert_equal 220, @entity.material.color.red
+    assert_equal 200, @entity.material.color.green
+    assert_equal 175, @entity.material.color.blue
+    assert_equal 1, first.fetch(:payload).fetch('revision')
+    assert_equal 1, first.fetch(:payload).fetch('entity_ref').fetch('revision')
+  end
+
+  def test_material_name_conflict_is_rejected_without_mutation
+    existing = @model.materials.add('oak')
+    existing.color = Sketchup::Color.new(1, 2, 3)
+
+    result = @engine.set_material(material_payload(operation_id: 'material-conflict'))
+
+    refute result.fetch(:ok)
+    assert_equal 'MATERIAL_NAME_CONFLICT', result.fetch(:error).fetch('code')
+    assert_nil @entity.material
+    assert_equal 0, @model.start_count
+  end
+
+  def test_material_rejects_invalid_rgb_before_operation
+    payload = material_payload(operation_id: 'material-bad')
+    payload['material']['color']['r'] = 256
+
+    result = @engine.set_material(payload)
+
+    refute result.fetch(:ok)
+    assert_equal 'INVALID_REQUEST', result.fetch(:error).fetch('code')
+    assert_equal 0, @model.start_count
+  end
+
+  def test_delete_and_material_reject_stale_revision
+    @model.observer.onTransactionCommit(@model)
+
+    delete_result = @engine.delete(delete_payload(operation_id: 'stale-delete'))
+    material_result = @engine.set_material(material_payload(operation_id: 'stale-material'))
+
+    refute delete_result.fetch(:ok)
+    assert_equal 'STALE_REVISION', delete_result.fetch(:error).fetch('code')
+    refute material_result.fetch(:ok)
+    assert_equal 'STALE_REVISION', material_result.fetch(:error).fetch('code')
+    assert_equal @entity, @model.find_entity_by_persistent_id(42)
+    assert_nil @entity.material
+    assert_equal 0, @model.start_count
+  end
+
+  def test_delete_and_material_reject_unsupported_entity_type
+    face = @model.register(FakeEntity.new(model: @model, persistent_id: 45, type: 'Face'))
+
+    delete_result = @engine.delete(
+      delete_payload(operation_id: 'delete-face', entity: face)
+    )
+    material_result = @engine.set_material(
+      material_payload(operation_id: 'material-face', entity: face)
+    )
+
+    refute delete_result.fetch(:ok)
+    assert_equal 'ENTITY_TYPE_NOT_SUPPORTED', delete_result.fetch(:error).fetch('code')
+    refute material_result.fetch(:ok)
+    assert_equal 'ENTITY_TYPE_NOT_SUPPORTED', material_result.fetch(:error).fetch('code')
     assert_equal 0, @model.start_count
   end
 end

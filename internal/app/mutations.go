@@ -28,6 +28,44 @@ func addMutationTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        EntityDeleteToolName,
+		Description: "Delete one existing SketchUp group or component instance by durable EntityRef with stale-write and replay protection.",
+		Annotations: mutationAnnotations(true),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.DeleteInput) (*mcp.CallToolResult, model.DeleteOutput, error) {
+		var output model.DeleteOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, EntityDeleteToolName, input.BridgePayload(), &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.DeleteOutput{}, err
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        EntityMaterialSetToolName,
+		Description: "Assign a bounded solid RGB material to one existing SketchUp group or component instance by durable EntityRef.",
+		Annotations: mutationAnnotations(false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.MaterialSetInput) (*mcp.CallToolResult, model.MaterialSetOutput, error) {
+		var output model.MaterialSetOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, EntityMaterialSetToolName, input.BridgePayload(), &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.MaterialSetOutput{}, err
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        BoxCreateToolName,
 		Description: "Create one grouped rectangular box with an explicit origin and positive dimensions.",
 		Annotations: mutationAnnotations(false),

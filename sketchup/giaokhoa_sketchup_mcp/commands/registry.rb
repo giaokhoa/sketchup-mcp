@@ -11,6 +11,8 @@ module Giaokhoa
           'selection.get',
           'entity.inspect',
           'entity.translate',
+          'entity.delete',
+          'entity.material.set',
           'geometry.create_box',
           'changes.undo'
         ].freeze
@@ -53,6 +55,10 @@ module Giaokhoa
             entity_inspect(payload)
           when 'entity.translate'
             @mutation_engine.translate(payload)
+          when 'entity.delete'
+            @mutation_engine.delete(payload)
+          when 'entity.material.set'
+            @mutation_engine.set_material(payload)
           when 'geometry.create_box'
             @mutation_engine.create_box(payload)
           when 'changes.undo'

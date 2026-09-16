@@ -48,6 +48,88 @@ module Giaokhoa
         end
       end
 
+      def delete(payload)
+        context, result = prepare_request(
+          'entity.delete',
+          payload,
+          %w[mutation entity_ref],
+          'SketchUp MCP: Delete Entity'
+        )
+        return result if result
+
+        entity, entity_error = resolve_entity(context, payload['entity_ref'])
+        return entity_error if entity_error
+        if active_path_contains?(context.model, entity)
+          return error(
+            'LOCKED_ENTITY_OR_CONTEXT',
+            'target entity is part of the active edit context'
+          )
+        end
+
+        persistent_id = entity.persistent_id
+        perform_operation(context, 'SketchUp MCP: Delete Entity') do
+          entity.erase!
+
+          lambda do |_post_snapshot|
+            {'deleted_persistent_id' => persistent_id}
+          end
+        end
+      end
+
+      def set_material(payload)
+        context, result = prepare_request(
+          'entity.material.set',
+          payload,
+          %w[mutation entity_ref material],
+          'SketchUp MCP: Set Material'
+        )
+        return result if result
+
+        entity, entity_error = resolve_entity(context, payload['entity_ref'])
+        return entity_error if entity_error
+
+        material_spec = parse_material(payload['material'])
+        return invalid('material must contain a bounded name and RGB channels from 0 through 255') unless material_spec
+
+        name, red, green, blue = material_spec
+        materials = context.model.materials
+        existing = materials[name]
+        if existing
+          if existing.respond_to?(:texture) && existing.texture
+            return error(
+              'MATERIAL_NAME_CONFLICT',
+              'existing material with this name is textured'
+            )
+          end
+          color = existing.color
+          unless color && color.red == red && color.green == green && color.blue == blue
+            return error(
+              'MATERIAL_NAME_CONFLICT',
+              'existing material with this name has a different color'
+            )
+          end
+        end
+
+        perform_operation(context, 'SketchUp MCP: Set Material') do
+          material = existing || materials.add(name)
+          raise OperationFailure, 'failed to create material' unless material
+
+          material.color = Sketchup::Color.new(red, green, blue) unless existing
+          assigned = entity.material = material
+          raise OperationFailure, 'failed to assign material' if assigned.nil?
+
+          lambda do |post_snapshot|
+            {
+              'entity_ref' => reference_for(entity, post_snapshot),
+              'material' => {
+                'name' => material.name.to_s,
+                'color' => {'r' => red, 'g' => green, 'b' => blue}
+              }
+            }
+          end
+        end
+      end
+
       def create_box(payload)
         context, result = prepare_request(
           'geometry.create_box',
@@ -389,6 +471,25 @@ module Giaokhoa
         else
           value
         end
+      end
+
+      def active_path_contains?(model, entity)
+        path = model.respond_to?(:active_path) ? (model.active_path || []) : []
+        path.include?(entity)
+      end
+
+      def parse_material(value)
+        return nil unless value.is_a?(Hash) && value.keys.sort == %w[color name]
+        name = value['name']
+        return nil unless name.is_a?(String) && !name.strip.empty? && name.bytesize <= 128
+
+        color = value['color']
+        return nil unless color.is_a?(Hash) && color.keys.sort == %w[b g r]
+
+        channels = %w[r g b].map { |key| color[key] }
+        return nil unless channels.all? { |channel| channel.is_a?(Integer) && channel.between?(0, 255) }
+
+        [name, *channels]
       end
 
       def vector3(value)

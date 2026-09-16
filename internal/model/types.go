@@ -21,6 +21,7 @@ const (
 	ErrorInvalidDimensions             = "INVALID_DIMENSIONS"
 	ErrorInvalidTransform              = "INVALID_TRANSFORM"
 	ErrorSketchUpOperationFailed       = "SKETCHUP_OPERATION_FAILED"
+	ErrorMaterialNameConflict           = "MATERIAL_NAME_CONFLICT"
 )
 
 type ToolError struct {
