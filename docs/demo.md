@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 13 |
+| Local MCP tools | 23 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -100,6 +100,7 @@ The expected tool list is exactly:
 ```text
 sketchup.sessions.list
 model.summary
+model.bounds
 selection.get
 entity.inspect
 entity.translate
@@ -109,7 +110,16 @@ entity.name.set
 entity.children.list
 assembly.create
 geometry.create_box
-layout.a3_sheet.create
+section_plane.create
+scene.create
+model.file.save_copy
+layout.document.create
+layout.viewport.add
+layout.dimension.add
+layout.text.add
+layout.line.add
+layout.rectangle.add
+layout.export
 changes.undo
 ```
 
@@ -125,7 +135,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly thirteen MCP tools discovered;
+- exactly 23 MCP tools discovered;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
@@ -306,62 +316,37 @@ origins within floating-point tolerance. SketchUp chose a non-zero transform for
 the root assembly, but compensated the child transforms so the physical model
 did not move.
 
-## A3 LayOut shop-drawing smoke - issue #23
+## LayOut primitive smoke - issue #27
 
-The saved 1800 mm cabinet model was documented through one MCP call:
+The packaged MCP exposes LayOut and SketchUp presentation operations as
+independent tools. There is no public tool that decides an A3 drawing workflow.
 
-```text
-layout.a3_sheet.create
-```
-
-The tool does not automate LayOut.exe. It uses the LayOut Ruby API available
-inside the existing SketchUp extension and produces:
+A live client composed these primitives:
 
 ```text
-documentation .skp snapshot
-editable .layout
-PDF
-direct PNG
+model.bounds
+section_plane.create
+scene.create
+model.file.save_copy
+layout.document.create
+layout.viewport.add
+layout.dimension.add
+layout.text.add
+layout.rectangle.add
+layout.export
 ```
 
-The drawing spec is model-derived. Furniture measurements are not supplied as
-custom dimension text. Every generated dimension uses real model-space
-endpoints and persistent-id paths, then connects to the matching
-`Layout::SketchUpModel` viewport with `Layout::ConnectionPoint`.
+The public coordinate contract is millimeters. Conversion to SketchUp/LayOut
+internal inches happens only at the Ruby API boundary.
 
-Live packaged-artifact acceptance on SketchUp 2026:
+Live packaged-artifact acceptance on SketchUp 2026 created an A3 landscape
+document with six independently requested viewports (plan, front, side, two
+sections, and isometric), connected dimensions, labels, PNG, and PDF. The test
+fixture was the 1800 mm cabinet, but no cabinet dimensions, view count, page
+size, labels, or viewport positions are encoded in the MCP primitive
+implementation.
 
-- exactly 13 MCP tools discovered;
-- one A3 landscape page: **420 x 297 mm**;
-- 6 viewports:
-  - MẶT BẰNG;
-  - MẶT ĐỨNG CHÍNH;
-  - MẶT CẮT A-A;
-  - MẶT CẮT B-B;
-  - MẶT BÊN;
-  - PHỐI CẢNH;
-- **46 dimensions created / 46 dimensions connected**;
-- no generated dimension uses custom measurement text;
-- preflight rejects dimension endpoints outside their referenced part bounds;
-- preflight rejects non-axis-aligned shop-drawing dimensions;
-- A3 paper preflight rejects overlapping/out-of-page viewports and labels;
-- PDF semantic readback reported the expected model measurements:
-  - width 1800.0 mm;
-  - 900.0 / 900.0 main split;
-  - four 438.5 mm lower doors;
-  - three 2.0 mm door gaps;
-  - 12.0 mm drawer-box boards;
-  - 18.0 mm adjustable shelf;
-  - 220.0 mm shelf level;
-- the output PDF contains one page and all six expected view labels;
-- the MCP result returns structured output and one native `image/png`
-  `ImageContent` block in the same call;
-- live native preview payload size was **258,874 bytes**;
-- SketchUp remained responsive.
-
-The native preview is the intended review transport for a direct MCP client.
-The server reads the LayOut-exported PNG and returns raw image bytes as standard
-MCP `ImageContent`; callers do not need to parse Base64 or open a PDF viewer.
+The PNG export is returned as native MCP `ImageContent`.
 
 ## Known local-demo limitations
 
