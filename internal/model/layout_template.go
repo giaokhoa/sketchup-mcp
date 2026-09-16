@@ -45,6 +45,12 @@ type LayoutTemplateSlot struct {
 	Perspective             bool         `json:"perspective,omitempty"`
 }
 
+type LayoutTemplatePanel struct {
+	PanelID    string       `json:"panel_id"`
+	PageIndex  int          `json:"page_index"`
+	BoundsMM   LayoutRectMM `json:"bounds_mm"`
+}
+
 type LayoutTemplateStyle struct {
 	StyleID   string `json:"style_id"`
 	PageIndex int    `json:"page_index"`
@@ -58,6 +64,7 @@ type LayoutTemplateInspectOutput struct {
 	Pages         []LayoutTemplatePage  `json:"pages"`
 	Layers        []LayoutTemplateLayer `json:"layers"`
 	Slots         []LayoutTemplateSlot  `json:"slots"`
+	Panels        []LayoutTemplatePanel `json:"panels"`
 	Styles        []LayoutTemplateStyle `json:"styles"`
 	AutoTextTypes []string              `json:"auto_text_types"`
 	Error         *ToolError            `json:"error,omitempty"`
