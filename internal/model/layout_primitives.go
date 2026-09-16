@@ -120,6 +120,7 @@ type LayoutViewportAddInput struct {
 	LayoutPath string `json:"layout_path"`
 	SKPPath string `json:"skp_path" jsonschema:"absolute saved SketchUp model path"`
 	PageIndex int `json:"page_index"`
+	LayerName string `json:"layer_name,omitempty" jsonschema:"optional existing LayOut layer name"`
 	BoundsMM LayoutRectMM `json:"bounds_mm"`
 	SceneName string `json:"scene_name,omitempty" jsonschema:"SketchUp scene name; use either scene_name or standard_view"`
 	StandardView string `json:"standard_view,omitempty" jsonschema:"top front back left right bottom iso; use either standard_view or scene_name"`
@@ -161,19 +162,21 @@ func (i LayoutViewportAddInput) BridgePayload() any {
 		LayoutPath string `json:"layout_path"`
 		SKPPath string `json:"skp_path"`
 		PageIndex int `json:"page_index"`
+		LayerName string `json:"layer_name"`
 		BoundsMM LayoutRectMM `json:"bounds_mm"`
 		SceneName string `json:"scene_name"`
 		StandardView string `json:"standard_view"`
 		Perspective bool `json:"perspective"`
 		ScaleDenominator float64 `json:"scale_denominator"`
 		RenderMode string `json:"render_mode"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Viewport"), i.LayoutPath, i.SKPPath, i.PageIndex, i.BoundsMM, i.SceneName, i.StandardView, i.Perspective, i.ScaleDenominator, i.RenderMode}
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Viewport"), i.LayoutPath, i.SKPPath, i.PageIndex, i.LayerName, i.BoundsMM, i.SceneName, i.StandardView, i.Perspective, i.ScaleDenominator, i.RenderMode}
 }
 
 type LayoutDimensionAddInput struct {
 	MutationEnvelope
 	LayoutPath string `json:"layout_path"`
 	PageIndex int `json:"page_index"`
+	LayerName string `json:"layer_name,omitempty" jsonschema:"optional existing LayOut layer name"`
 	ViewportRef LayoutEntityRef `json:"viewport_ref"`
 	StartPointMM LayoutPoint3MM `json:"start_point_mm"`
 	EndPointMM LayoutPoint3MM `json:"end_point_mm"`
@@ -205,6 +208,7 @@ func (i LayoutDimensionAddInput) BridgePayload() any {
 		Mutation BridgeMutation `json:"mutation"`
 		LayoutPath string `json:"layout_path"`
 		PageIndex int `json:"page_index"`
+		LayerName string `json:"layer_name"`
 		ViewportRef LayoutEntityRef `json:"viewport_ref"`
 		StartPointMM LayoutPoint3MM `json:"start_point_mm"`
 		EndPointMM LayoutPoint3MM `json:"end_point_mm"`
@@ -213,13 +217,14 @@ func (i LayoutDimensionAddInput) BridgePayload() any {
 		OffsetMM float64 `json:"offset_mm"`
 		Alignment string `json:"alignment"`
 		StyleID string `json:"style_id"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Dimension"), i.LayoutPath, i.PageIndex, i.ViewportRef, i.StartPointMM, i.EndPointMM, i.StartPIDPath, i.EndPIDPath, i.OffsetMM, i.Alignment, i.StyleID}
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Dimension"), i.LayoutPath, i.PageIndex, i.LayerName, i.ViewportRef, i.StartPointMM, i.EndPointMM, i.StartPIDPath, i.EndPIDPath, i.OffsetMM, i.Alignment, i.StyleID}
 }
 
 type LayoutTextAddInput struct {
 	MutationEnvelope
 	LayoutPath string `json:"layout_path"`
 	PageIndex int `json:"page_index"`
+	LayerName string `json:"layer_name,omitempty" jsonschema:"optional existing LayOut layer name"`
 	BoundsMM LayoutRectMM `json:"bounds_mm"`
 	Text string `json:"text"`
 	FontSizePT float64 `json:"font_size_pt"`
@@ -247,19 +252,21 @@ func (i LayoutTextAddInput) BridgePayload() any {
 		Mutation BridgeMutation `json:"mutation"`
 		LayoutPath string `json:"layout_path"`
 		PageIndex int `json:"page_index"`
+		LayerName string `json:"layer_name"`
 		BoundsMM LayoutRectMM `json:"bounds_mm"`
 		Text string `json:"text"`
 		FontSizePT float64 `json:"font_size_pt"`
 		Bold bool `json:"bold"`
 		Alignment string `json:"alignment"`
 		StyleID string `json:"style_id"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Text"), i.LayoutPath, i.PageIndex, i.BoundsMM, i.Text, i.FontSizePT, i.Bold, i.Alignment, i.StyleID}
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Text"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.Text, i.FontSizePT, i.Bold, i.Alignment, i.StyleID}
 }
 
 type LayoutLineAddInput struct {
 	MutationEnvelope
 	LayoutPath string `json:"layout_path"`
 	PageIndex int `json:"page_index"`
+	LayerName string `json:"layer_name,omitempty" jsonschema:"optional existing LayOut layer name"`
 	StartMM LayoutPoint2MM `json:"start_mm"`
 	EndMM LayoutPoint2MM `json:"end_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
@@ -281,16 +288,18 @@ func (i LayoutLineAddInput) BridgePayload() any {
 		Mutation BridgeMutation `json:"mutation"`
 		LayoutPath string `json:"layout_path"`
 		PageIndex int `json:"page_index"`
+		LayerName string `json:"layer_name"`
 		StartMM LayoutPoint2MM `json:"start_mm"`
 		EndMM LayoutPoint2MM `json:"end_mm"`
 		StrokeWidth float64 `json:"stroke_width"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Line"), i.LayoutPath, i.PageIndex, i.StartMM, i.EndMM, i.StrokeWidth}
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Line"), i.LayoutPath, i.PageIndex, i.LayerName, i.StartMM, i.EndMM, i.StrokeWidth}
 }
 
 type LayoutRectangleAddInput struct {
 	MutationEnvelope
 	LayoutPath string `json:"layout_path"`
 	PageIndex int `json:"page_index"`
+	LayerName string `json:"layer_name,omitempty" jsonschema:"optional existing LayOut layer name"`
 	BoundsMM LayoutRectMM `json:"bounds_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
 }
@@ -309,9 +318,10 @@ func (i LayoutRectangleAddInput) BridgePayload() any {
 		Mutation BridgeMutation `json:"mutation"`
 		LayoutPath string `json:"layout_path"`
 		PageIndex int `json:"page_index"`
+		LayerName string `json:"layer_name"`
 		BoundsMM LayoutRectMM `json:"bounds_mm"`
 		StrokeWidth float64 `json:"stroke_width"`
-	}{i.bridgeMutation("SketchUp MCP: Add LayOut Rectangle"), i.LayoutPath, i.PageIndex, i.BoundsMM, i.StrokeWidth}
+	}{i.bridgeMutation("SketchUp MCP: Add LayOut Rectangle"), i.LayoutPath, i.PageIndex, i.LayerName, i.BoundsMM, i.StrokeWidth}
 }
 
 type LayoutExportInput struct {
