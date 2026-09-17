@@ -122,14 +122,14 @@ type LayoutViewportAddInput struct {
 	PageIndex int `json:"page_index"`
 	LayerName string `json:"layer_name,omitempty" jsonschema:"optional existing LayOut layer name"`
 	BoundsMM LayoutRectMM `json:"bounds_mm"`
-	SceneName string `json:"scene_name,omitempty" jsonschema:"SketchUp scene name; use either scene_name or standard_view"`
+	SceneName string `json:"scene_name,omitempty" jsonschema:"SketchUp scene name; prefer a named documentation scene when one exists; use exactly one of scene_name or standard_view"`
 	StandardView string `json:"standard_view,omitempty" jsonschema:"top front back left right bottom iso; use either standard_view or scene_name"`
 	Perspective bool `json:"perspective"`
 	ScaleDenominator float64 `json:"scale_denominator" jsonschema:"orthographic drawing scale denominator such as 10 for 1:10; use 0 for perspective"`
 	RenderMode string `json:"render_mode" jsonschema:"raster hybrid or vector"`
-	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
-	RequireFit bool `json:"require_fit,omitempty" jsonschema:"fail before save when projected model bounds do not fit viewport"`
-	FitModelBoundsMM *LayoutModelBoundsMM `json:"fit_model_bounds_mm,omitempty" jsonschema:"required with require_fit; model-space bounds in millimeters"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel ID; associates this runtime entity for layout.panel.validate containment checks"`
+	RequireFit bool `json:"require_fit,omitempty" jsonschema:"for accepted drawings normally true; fail before save when projected model bounds do not fit viewport"`
+	FitModelBoundsMM *LayoutModelBoundsMM `json:"fit_model_bounds_mm,omitempty" jsonschema:"required with require_fit; SketchUp model-space bounds in millimeters, not paper-space bounds"`
 	FitMarginMM float64 `json:"fit_margin_mm,omitempty" jsonschema:"inward paper-space safety margin in millimeters"`
 }
 
@@ -198,7 +198,7 @@ type LayoutDimensionAddInput struct {
 	OffsetMM float64 `json:"offset_mm" jsonschema:"signed paper-space distance from measured points to the dimension line in millimeters"`
 	Alignment string `json:"alignment" jsonschema:"auto horizontal vertical or aligned"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
-	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel ID; associates this runtime entity for layout.panel.validate containment checks"`
 }
 
 func (i LayoutDimensionAddInput) Validate() error {
@@ -246,7 +246,7 @@ type LayoutTextAddInput struct {
 	Bold bool `json:"bold"`
 	Alignment string `json:"alignment" jsonschema:"left center or right"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
-	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel ID; associates this runtime entity for layout.panel.validate containment checks"`
 }
 
 func (i LayoutTextAddInput) Validate() error {
@@ -288,7 +288,7 @@ type LayoutLineAddInput struct {
 	EndMM LayoutPoint2MM `json:"end_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
-	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel ID; associates this runtime entity for layout.panel.validate containment checks"`
 }
 
 func (i LayoutLineAddInput) Validate() error {
@@ -324,7 +324,7 @@ type LayoutRectangleAddInput struct {
 	BoundsMM LayoutRectMM `json:"bounds_mm"`
 	StrokeWidth float64 `json:"stroke_width"`
 	StyleID string `json:"style_id,omitempty" jsonschema:"optional tagged template style sample id"`
-	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel association"`
+	PanelID string `json:"panel_id,omitempty" jsonschema:"optional template panel ID; associates this runtime entity for layout.panel.validate containment checks"`
 }
 
 func (i LayoutRectangleAddInput) Validate() error {
@@ -394,7 +394,7 @@ type LayoutEntityOutput struct {
 	Revision uint64 `json:"revision"`
 	LayoutPath string `json:"layout_path,omitempty"`
 	EntityRef *LayoutEntityRef `json:"entity_ref,omitempty"`
-	Connected bool `json:"connected,omitempty"`
+	Connected bool `json:"connected,omitempty" jsonschema:"true when an associative dimension is connected to its LayOut viewport and SketchUp model geometry"`
 	FitChecked bool `json:"fit_checked,omitempty"`
 	FitsBounds bool `json:"fits_bounds,omitempty"`
 	ProjectedBoundsMM *LayoutRectMM `json:"projected_bounds_mm,omitempty"`

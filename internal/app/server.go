@@ -40,7 +40,7 @@ const (
 	LayoutRectangleAddToolName = "layout.rectangle.add"
 	LayoutExportToolName = "layout.export"
 
-	ServerInstructions = "Start with sketchup.sessions.list and choose one live session. Read model.summary before any write and use the returned model GUID and revision. Reuse durable entity references returned by selection.get, entity.inspect, or mutation results. Give every intended write a unique operation_id. If a write returns STALE_REVISION, re-read model state and retry with a new operation_id."
+	ServerInstructions = "Start with sketchup.sessions.list and choose one live session. Read model.summary before any write and use the returned model GUID and revision. For LayOut documentation: read model.bounds, prepare SketchUp scenes/section state, save a .skp copy, inspect the .layout template, create from that template, add viewports/dimensions/annotations with panel_id, validate every populated panel, then export. Prefer named scenes for viewport presentation; orthographic views need an explicit scale denominator; accepted drawings should normally use require_fit=true with model-space fit_model_bounds_mm. Paper-space coordinates are millimeters. Reuse durable entity references, give every intended write a unique operation_id, and on STALE_REVISION refresh state before retrying with a new operation_id."
 )
 
 type SessionService interface {

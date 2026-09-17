@@ -48,7 +48,7 @@ func addPresentationTools(server *mcp.Server, service SessionService) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        SceneCreateToolName,
-		Description: "Create one SketchUp scene from an explicit camera, with an optional active section plane captured into the scene.",
+		Description: "Create a named SketchUp scene as reusable presentation state for camera and optional active section plane; LayOut viewports should reference named scenes when available.",
 		Annotations: mutationAnnotations(false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.SceneCreateInput) (*mcp.CallToolResult, model.SceneCreateOutput, error) {
 		var output model.SceneCreateOutput

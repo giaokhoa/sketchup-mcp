@@ -6,8 +6,8 @@ import (
 )
 
 type LayoutModelBoundsMM struct {
-	MinMM LayoutPoint3MM `json:"min_mm"`
-	MaxMM LayoutPoint3MM `json:"max_mm"`
+	MinMM LayoutPoint3MM `json:"min_mm" jsonschema:"minimum SketchUp model-space point in millimeters"`
+	MaxMM LayoutPoint3MM `json:"max_mm" jsonschema:"maximum SketchUp model-space point in millimeters"`
 }
 
 func (b LayoutModelBoundsMM) Validate() error {
@@ -23,7 +23,7 @@ type LayoutPanelValidateInput struct {
 	SessionID  string  `json:"session_id" jsonschema:"SketchUp MCP session identifier"`
 	LayoutPath string  `json:"layout_path"`
 	PageIndex  int     `json:"page_index"`
-	PanelID    string  `json:"panel_id"`
+	PanelID    string  `json:"panel_id" jsonschema:"template panel ID whose associated runtime entities are checked for containment"`
 	MarginMM   float64 `json:"margin_mm,omitempty" jsonschema:"inward safety margin in millimeters"`
 }
 
