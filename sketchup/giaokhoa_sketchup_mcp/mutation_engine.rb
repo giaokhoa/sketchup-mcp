@@ -249,38 +249,6 @@ module Giaokhoa
         end
       end
 
-      def create_layout_a3(payload)
-        context, result = prepare_request(
-          'layout.a3_sheet.create',
-          payload,
-          %w[mutation output_directory base_name],
-          'SketchUp MCP: Create A3 LayOut Sheet'
-        )
-        return result if result
-
-        output_directory = payload['output_directory']
-        base_name = payload['base_name']
-        unless output_directory.is_a?(String) && !output_directory.strip.empty? &&
-               base_name.is_a?(String) && base_name.match?(/\A[A-Za-z0-9._-]{1,80}\z/)
-          return invalid('layout output_directory/base_name are invalid')
-        end
-
-        snapshot_builder = DocumentationSnapshotBuilder.new(
-          model: context.model,
-          output_directory: output_directory,
-          base_name: base_name
-        )
-
-        perform_operation(context, 'SketchUp MCP: Create A3 LayOut Sheet') do
-          prepared = snapshot_builder.prepare!
-
-          lambda do |_post_snapshot|
-            saved = snapshot_builder.save_snapshot!(prepared)
-            LayoutSheetBuilder.new(spec: saved.fetch('spec')).build!
-          end
-        end
-      end
-
       def create_box(payload)
         context, result = prepare_request(
           'geometry.create_box',

@@ -8,6 +8,7 @@ module Giaokhoa
           'system.ping',
           'session.info',
           'model.summary',
+          'model.bounds',
           'selection.get',
           'entity.inspect',
           'entity.children.list',
@@ -17,7 +18,18 @@ module Giaokhoa
           'entity.name.set',
           'assembly.create',
           'geometry.create_box',
-          'layout.a3_sheet.create',
+          'section_plane.create',
+          'scene.create',
+          'model.file.save_copy',
+          'layout.document.create',
+          'layout.template.inspect',
+          'layout.panel.validate',
+          'layout.viewport.add',
+          'layout.dimension.add',
+          'layout.text.add',
+          'layout.line.add',
+          'layout.rectangle.add',
+          'layout.export',
           'changes.undo'
         ].freeze
         MAX_SELECTION_ENTITIES = 100
@@ -53,6 +65,9 @@ module Giaokhoa
           when 'model.summary'
             return invalid('payload must be an empty object') unless payload.empty?
             model_summary
+          when 'model.bounds'
+            return invalid('payload must be an empty object') unless payload.empty?
+            @mutation_engine.model_bounds(payload)
           when 'selection.get'
             return invalid('payload must be an empty object') unless payload.empty?
             selection_get
@@ -72,8 +87,30 @@ module Giaokhoa
             @mutation_engine.create_assembly(payload)
           when 'geometry.create_box'
             @mutation_engine.create_box(payload)
-          when 'layout.a3_sheet.create'
-            @mutation_engine.create_layout_a3(payload)
+          when 'section_plane.create'
+            @mutation_engine.create_section_plane(payload)
+          when 'scene.create'
+            @mutation_engine.create_scene(payload)
+          when 'model.file.save_copy'
+            @mutation_engine.save_model_copy(payload)
+          when 'layout.document.create'
+            @mutation_engine.create_layout_document(payload)
+          when 'layout.template.inspect'
+            @mutation_engine.inspect_layout_template(payload)
+          when 'layout.panel.validate'
+            @mutation_engine.validate_layout_panel(payload)
+          when 'layout.viewport.add'
+            @mutation_engine.add_layout_viewport(payload)
+          when 'layout.dimension.add'
+            @mutation_engine.add_layout_dimension(payload)
+          when 'layout.text.add'
+            @mutation_engine.add_layout_text(payload)
+          when 'layout.line.add'
+            @mutation_engine.add_layout_line(payload)
+          when 'layout.rectangle.add'
+            @mutation_engine.add_layout_rectangle(payload)
+          when 'layout.export'
+            @mutation_engine.export_layout_document(payload)
           when 'changes.undo'
             @mutation_engine.undo(payload)
           else
