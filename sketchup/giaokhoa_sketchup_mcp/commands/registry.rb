@@ -18,7 +18,9 @@ module Giaokhoa
           'entity.name.set',
           'assembly.create',
           'geometry.create_box',
+          'section_plane.list',
           'section_plane.create',
+          'scene.list',
           'scene.create',
           'model.file.save_copy',
           'layout.document.create',
@@ -87,8 +89,14 @@ module Giaokhoa
             @mutation_engine.create_assembly(payload)
           when 'geometry.create_box'
             @mutation_engine.create_box(payload)
+          when 'section_plane.list'
+            return invalid('payload must be an empty object') unless payload.empty?
+            @mutation_engine.list_section_planes(payload)
           when 'section_plane.create'
             @mutation_engine.create_section_plane(payload)
+          when 'scene.list'
+            return invalid('payload must be an empty object') unless payload.empty?
+            @mutation_engine.list_scenes(payload)
           when 'scene.create'
             @mutation_engine.create_scene(payload)
           when 'model.file.save_copy'

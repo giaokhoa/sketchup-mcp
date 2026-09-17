@@ -25,6 +25,10 @@ func (emptySessionLister) Call(_ context.Context, _ string, operation string, _ 
 		*target = model.SummaryOutput{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", Revision: 7}
 	case *model.ModelBoundsOutput:
 		*target = model.ModelBoundsOutput{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", Revision: 7}
+	case *model.SectionPlaneListOutput:
+		*target = model.SectionPlaneListOutput{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", Revision: 7, SectionPlanes: []model.SectionPlaneInfo{}}
+	case *model.SceneListOutput:
+		*target = model.SceneListOutput{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", Revision: 7, Scenes: []model.SceneInfo{}}
 	case *model.SelectionOutput:
 		*target = model.SelectionOutput{SessionID: "11111111-1111-4111-8111-111111111111", ModelGUID: "model-guid", Revision: 7, Entities: []model.SelectionEntity{}}
 	case *model.InspectOutput:
@@ -231,7 +235,7 @@ func TestLiveModelToolsExposeTypedReadOnlySchemas(t *testing.T) {
 		tools[tool.Name] = tool
 	}
 
-	for _, name := range []string{ModelSummaryToolName, ModelBoundsToolName, SelectionGetToolName, EntityInspectToolName, EntityChildrenListToolName} {
+	for _, name := range []string{ModelSummaryToolName, ModelBoundsToolName, SectionPlaneListToolName, SceneListToolName, SelectionGetToolName, EntityInspectToolName, EntityChildrenListToolName} {
 		tool := tools[name]
 		if tool == nil {
 			t.Fatalf("tool %q not found", name)
@@ -254,6 +258,8 @@ func TestLiveModelToolsExposeTypedReadOnlySchemas(t *testing.T) {
 	}{
 		{ModelSummaryToolName, map[string]any{"session_id": sessionID}},
 		{ModelBoundsToolName, map[string]any{"session_id": sessionID}},
+		{SectionPlaneListToolName, map[string]any{"session_id": sessionID}},
+		{SceneListToolName, map[string]any{"session_id": sessionID}},
 		{SelectionGetToolName, map[string]any{"session_id": sessionID}},
 		{EntityInspectToolName, map[string]any{
 			"session_id": sessionID, "model_guid": "model-guid",

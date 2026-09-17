@@ -38,6 +38,7 @@ jobs:
           ruby test/model_context_test.rb
           ruby test/server_integration_test.rb
           ruby test/mutation_engine_test.rb
+          ruby test/presentation_discovery_test.rb
 
   package:
     needs: test
@@ -98,6 +99,7 @@ jobs:
           cp dist-a/sketchup-mcp-windows-amd64.exe dist/
           cp dist-a/giaokhoa_sketchup_mcp.rbz dist/
           cp dist-a/SHA256SUMS.txt dist/
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o dist/live-layout-e2e-windows-amd64.exe ./cmd/live-layout-e2e
 
       - uses: actions/upload-artifact@v7
         with:

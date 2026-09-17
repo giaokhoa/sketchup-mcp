@@ -11,7 +11,8 @@ The generic runner executes this fixture-driven flow:
 ```text
 discover target session
   -> model.summary / model.bounds
-  -> presentation scenes / section planes from fixture data
+  -> list existing scenes / section planes and create only missing fixture state
+  -> run the same presentation preparation a second time and require reuse-only / unchanged revision
   -> model.file.save_copy
   -> layout.template.inspect
   -> layout.document.create(template_path)
@@ -70,7 +71,9 @@ live-layout-e2e-report.json
 ```
 
 A passing run prints `LIVE_LAYOUT_E2E_PASS`. Any failed assertion exits non-zero and the
-report identifies the failed stage.
+report identifies the failed stage. The report also records first/second presentation create
+and reuse counts; the second pass must create zero items and reuse every fixture presentation
+role without advancing the SketchUp model revision.
 
 ## Generic-fixture check
 
