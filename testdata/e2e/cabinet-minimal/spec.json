@@ -1,0 +1,24 @@
+{
+  "Name": "cabinet-minimal",
+  "OutputBase": "cabinet-minimal-live-e2e",
+  "ExpectedModel": {"SizeMm":{"X":1800,"Y":465,"Z":900},"ToleranceMm":0.5},
+  "RequiredTemplate": {"SchemaVersion":1,"TemplateKind":"furniture_shopdrawing","Slots":["plan"],"Panels":["plan"],"Styles":["dimension","caption","scale_label"],"Layers":["10 Viewports","20 Dimensions","40 Annotations"]},
+  "Presentation": [
+  ],
+  "Viewports": [
+    {"Id":"plan","SlotId":"plan","SceneName":"","StandardView":"top","Perspective":false,"ScaleDenominator":10,"RenderMode":"hybrid","LayerName":"10 Viewports","PanelId":"plan","FitMarginMm":1}
+  ],
+  "Dimensions": [
+    {"Id":"plan-width","ViewportId":"plan","PageIndex":0,"LayerName":"20 Dimensions","StartPointMm":{"X":0,"Y":0,"Z":900},"EndPointMm":{"X":1800,"Y":0,"Z":900},"StartPidPath":"","EndPidPath":"","OffsetMm":10,"Alignment":"horizontal","StyleId":"dimension","PanelId":"plan"}
+  ],
+  "Texts": [
+    {"Id":"caption-plan","PageIndex":0,"LayerName":"40 Annotations","BoundsMm":{"X":10,"Y":174,"Width":183,"Height":8},"Text":"MẶT BẰNG","FontSizePt":10,"Bold":true,"Alignment":"center","StyleId":"caption","PanelId":"plan"},
+    {"Id":"scale-plan","PageIndex":0,"LayerName":"40 Annotations","BoundsMm":{"X":10,"Y":183,"Width":183,"Height":6},"Text":"TỶ LỆ 1:10","FontSizePt":7,"Bold":false,"Alignment":"center","StyleId":"scale_label","PanelId":"plan"}
+  ],
+  "Lines": [
+  ],
+  "Rectangles": [
+  ],
+  "PanelMarginMm": 1,
+  "ExportDpi": 120
+}
