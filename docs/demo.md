@@ -420,6 +420,18 @@ Run `sketchup.sessions.list` again and use the current session.
 Read `model.summary` again, refresh references if needed, and use a new
 operation ID for the intended retry.
 
+**Viewport fit check fails**
+
+Keep `require_fit=true`. Re-read `model.bounds`, confirm `fit_model_bounds_mm` is
+model-space millimeter bounds, then adjust the scene, orthographic scale, slot,
+or fit margin. Do not disable the fit gate to make an accepted drawing pass.
+
+**Panel containment validation fails**
+
+Run `layout.panel.validate` for the reported `panel_id`, inspect its violations,
+and move/resize the associated viewport, dimension, or annotation back inside
+the template panel. Re-run validation before export.
+
 **Client sees no tools**
 
 Use an absolute executable path and confirm the client launches the executable
