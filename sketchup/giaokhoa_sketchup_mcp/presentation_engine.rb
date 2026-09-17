@@ -6,6 +6,7 @@ module Giaokhoa
   module SketchupMcp
     class MutationEngine
       PRESENTATION_MM_PER_INCH = 25.4
+      MAX_PRESENTATION_LIST_ITEMS = 100
 
       def model_bounds(_payload)
         model, snapshot = @model_state.capture
@@ -41,6 +42,77 @@ module Giaokhoa
           },
           'center_mm' => point_mm_hash(center)
         )
+      end
+
+      def list_section_planes(_payload)
+        model, snapshot = @model_state.capture
+        all = model.entities.grep(Sketchup::SectionPlane)
+        items = all.first(MAX_PRESENTATION_LIST_ITEMS).map do |section_plane|
+          plane = section_plane.get_plane
+          origin_mm, normal = plane_summary(plane)
+          {
+            'entity_ref' => reference_for(section_plane, snapshot),
+            'name' => section_plane.name.to_s,
+            'symbol' => section_plane.symbol.to_s,
+            'origin_mm' => origin_mm,
+            'normal' => normal,
+            'active' => section_plane.active? == true
+          }
+        end
+        ok(
+          'session_id' => @session_id,
+          'model_guid' => snapshot.fetch(:guid),
+          'revision' => snapshot.fetch(:revision),
+          'total_count' => all.length,
+          'returned_count' => items.length,
+          'truncated' => all.length > items.length,
+          'section_planes' => items
+        )
+      rescue StandardError => e
+        error('SKETCHUP_OPERATION_FAILED', 'failed to list section planes', 'reason' => e.message.to_s)
+      end
+
+      def list_scenes(_payload)
+        model, snapshot = @model_state.capture
+        page_collection = model.pages
+        pages = []
+        page_collection.each { |page| pages << page }
+        selected = page_collection.selected_page
+        items = pages.first(MAX_PRESENTATION_LIST_ITEMS).each_with_index.map do |page, index|
+          camera = page.camera
+          perspective = camera.perspective? == true
+          active_sections = page.respond_to?(:active_section_planes) ? page.active_section_planes : nil
+          section_plane = active_sections && active_sections.first
+          rendering = page.rendering_options
+          {
+            'name' => page.name.to_s,
+            'index' => index,
+            'persistent_id' => positive_persistent_id(page),
+            'active' => page.equal?(selected),
+            'camera' => {
+              'eye_mm' => point_mm_hash(camera.eye),
+              'target_mm' => point_mm_hash(camera.target),
+              'up' => vector_hash(camera.up),
+              'perspective' => perspective,
+              'orthographic_height_mm' => perspective ? 0.0 : inches_to_mm(camera.height),
+              'fov_degrees' => perspective ? camera.fov.to_f : 0.0
+            },
+            'active_section_plane_ref' => section_plane ? reference_for(section_plane, snapshot) : nil,
+            'display_section_cuts' => rendering['DisplaySectionCuts'] == true,
+            'display_section_planes' => rendering['DisplaySectionPlanes'] == true
+          }
+        end
+        ok(
+          'session_id' => @session_id,
+          'model_guid' => snapshot.fetch(:guid),
+          'revision' => snapshot.fetch(:revision),
+          'total_count' => pages.length,
+          'returned_count' => items.length,
+          'truncated' => pages.length > items.length,
+          'scenes' => items
+        )
+      rescue StandardError => e
+        error('SKETCHUP_OPERATION_FAILED', 'failed to list scenes', 'reason' => e.message.to_s)
       end
 
       def create_section_plane(payload)
@@ -183,6 +255,38 @@ module Giaokhoa
       end
 
       private
+
+      def plane_summary(value)
+        unless value.is_a?(Array) && value.length == 4
+          raise OperationFailure, 'section plane coefficients are invalid'
+        end
+        a, b, c, d = value.map { |item| finite_number(item) }
+        unless a && b && c && d
+          raise OperationFailure, 'section plane coefficients are invalid'
+        end
+        squared = (a * a) + (b * b) + (c * c)
+        raise OperationFailure, 'section plane normal is zero' unless squared.positive?
+
+        length = Math.sqrt(squared)
+        origin = {
+          'x' => inches_to_mm((-a * d) / squared),
+          'y' => inches_to_mm((-b * d) / squared),
+          'z' => inches_to_mm((-c * d) / squared)
+        }
+        normal = {'x' => a / length, 'y' => b / length, 'z' => c / length}
+        [origin, normal]
+      end
+
+      def vector_hash(vector)
+        {'x' => vector.x.to_f, 'y' => vector.y.to_f, 'z' => vector.z.to_f}
+      end
+
+      def positive_persistent_id(entity)
+        value = entity.respond_to?(:persistent_id) ? entity.persistent_id : nil
+        value.is_a?(Integer) && value.positive? ? value : 0
+      rescue StandardError
+        0
+      end
 
       def resolve_section_plane(context, ref)
         required = %w[session_id model_guid persistent_id revision]

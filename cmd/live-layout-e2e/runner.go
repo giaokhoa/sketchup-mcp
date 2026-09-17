@@ -86,7 +86,7 @@ func (r *Runner) connect(ctx context.Context) error {
 	}
 	required := []string{
 		"sketchup.sessions.list", "model.summary", "model.bounds",
-		"section_plane.create", "scene.create", "model.file.save_copy",
+		"section_plane.list", "section_plane.create", "scene.list", "scene.create", "model.file.save_copy",
 		"layout.template.inspect", "layout.document.create", "layout.viewport.add",
 		"layout.dimension.add", "layout.text.add", "layout.line.add",
 		"layout.rectangle.add", "layout.panel.validate", "layout.export",
@@ -320,51 +320,335 @@ func (r *Runner) callMutation(ctx context.Context, name string, fields map[strin
 }
 
 func (r *Runner) preparePresentation(ctx context.Context) error {
+	created, reused, err := r.preparePresentationPass(ctx)
+	r.report.PresentationFirstCreated = created
+	r.report.PresentationFirstReused = reused
+	return err
+}
+
+func (r *Runner) repeatPresentation(ctx context.Context) error {
+	before := r.revision
+	created, reused, err := r.preparePresentationPass(ctx)
+	r.report.PresentationSecondCreated = created
+	r.report.PresentationSecondReused = reused
+	if err != nil {
+		return err
+	}
+	if created != 0 {
+		return fmt.Errorf("second presentation pass created %d item(s); expected reuse only", created)
+	}
+	if reused != len(r.fixture.Presentation) {
+		return fmt.Errorf("second presentation pass reused %d item(s); want %d", reused, len(r.fixture.Presentation))
+	}
+	if r.revision != before {
+		return fmt.Errorf("second presentation pass changed model revision from %d to %d", before, r.revision)
+	}
+	return r.verifyPresentationUnique(ctx)
+}
+
+func (r *Runner) preparePresentationPass(ctx context.Context) (int, int, error) {
+	created := 0
+	reused := 0
+	sections, err := r.listPresentationItems(ctx, "section_plane.list", "section_planes")
+	if err != nil {
+		return created, reused, err
+	}
+
 	for _, step := range r.fixture.Presentation {
-		switch strings.ToLower(step.Kind) {
-		case "section":
-			spec := step.Section
-			_, out, err := r.callMutation(ctx, "section_plane.create", map[string]any{
-				"point_mm": vec3Map(spec.PointMm),
-				"normal":   vec3Map(spec.Normal),
-				"name":     spec.Name,
-				"symbol":   spec.Symbol,
-			}, true)
-			if err != nil {
-				return fmt.Errorf("section %s: %w", step.Id, err)
+		if strings.ToLower(step.Kind) != "section" {
+			continue
+		}
+		spec := step.Section
+		match, err := findReusablePresentationItem(sections, spec.Name)
+		if err != nil {
+			return created, reused, fmt.Errorf("section %s: %w", step.Id, err)
+		}
+		if match != nil {
+			if !r.sectionMatches(match, spec) {
+				return created, reused, fmt.Errorf("section %s %q exists but does not match fixture plane/symbol", step.Id, spec.Name)
 			}
-			ref, err := mapField(out, "entity_ref")
-			if err != nil {
-				return fmt.Errorf("section %s missing entity_ref: %w", step.Id, err)
+			reused++
+			continue
+		}
+		_, _, err = r.callMutation(ctx, "section_plane.create", map[string]any{
+			"point_mm": vec3Map(spec.PointMm),
+			"normal":   vec3Map(spec.Normal),
+			"name":     spec.Name,
+			"symbol":   spec.Symbol,
+		}, true)
+		if err != nil {
+			return created, reused, fmt.Errorf("section %s: %w", step.Id, err)
+		}
+		created++
+	}
+
+	if err := r.refreshSectionRefs(ctx); err != nil {
+		return created, reused, err
+	}
+	scenes, err := r.listPresentationItems(ctx, "scene.list", "scenes")
+	if err != nil {
+		return created, reused, err
+	}
+	for _, step := range r.fixture.Presentation {
+		if strings.ToLower(step.Kind) != "scene" {
+			continue
+		}
+		spec := step.Scene
+		match, err := findReusablePresentationItem(scenes, spec.Name)
+		if err != nil {
+			return created, reused, fmt.Errorf("scene %s: %w", step.Id, err)
+		}
+		if match != nil {
+			if !r.sceneMatches(match, spec) {
+				return created, reused, fmt.Errorf("scene %s %q exists but does not match fixture camera/section state", step.Id, spec.Name)
 			}
-			r.sectionRefs[step.Id] = ref
-		case "scene":
-			spec := step.Scene
-			var sectionRef any
-			if spec.SectionId != "" {
-				ref := r.sectionRefs[spec.SectionId]
-				if ref == nil {
-					return fmt.Errorf("scene %q missing section ref %q", spec.Name, spec.SectionId)
+			reused++
+			continue
+		}
+
+		var sectionRef any
+		if spec.SectionId != "" {
+			ref := r.sectionRefs[spec.SectionId]
+			if ref == nil {
+				return created, reused, fmt.Errorf("scene %q missing section ref %q", spec.Name, spec.SectionId)
+			}
+			refRevision, _ := uintField(ref, "revision")
+			if refRevision != r.revision {
+				if err := r.refreshSectionRefs(ctx); err != nil {
+					return created, reused, err
 				}
-				sectionRef = ref
+				ref = r.sectionRefs[spec.SectionId]
 			}
-			_, _, err := r.callMutation(ctx, "scene.create", map[string]any{
-				"name":                   spec.Name,
-				"eye_mm":                 vec3Map(spec.EyeMm),
-				"target_mm":              vec3Map(spec.TargetMm),
-				"up":                     vec3Map(spec.Up),
-				"perspective":            spec.Perspective,
-				"orthographic_height_mm": spec.OrthographicHeightMm,
-				"fov_degrees":            spec.FovDegrees,
-				"section_plane_ref":      sectionRef,
-				"display_section_plane":  spec.DisplaySectionPlane,
-			}, true)
-			if err != nil {
-				return fmt.Errorf("scene %q: %w", spec.Name, err)
+			sectionRef = ref
+		}
+		_, _, err = r.callMutation(ctx, "scene.create", map[string]any{
+			"name":                   spec.Name,
+			"eye_mm":                 vec3Map(spec.EyeMm),
+			"target_mm":              vec3Map(spec.TargetMm),
+			"up":                     vec3Map(spec.Up),
+			"perspective":            spec.Perspective,
+			"orthographic_height_mm": spec.OrthographicHeightMm,
+			"fov_degrees":            spec.FovDegrees,
+			"section_plane_ref":      sectionRef,
+			"display_section_plane":  spec.DisplaySectionPlane,
+		}, true)
+		if err != nil {
+			return created, reused, fmt.Errorf("scene %q: %w", spec.Name, err)
+		}
+		created++
+	}
+	return created, reused, nil
+}
+
+func (r *Runner) listPresentationItems(ctx context.Context, toolName, key string) ([]map[string]any, error) {
+	_, out, err := r.call(ctx, toolName, map[string]any{"session_id": r.sessionId})
+	if err != nil {
+		return nil, err
+	}
+	guid, _ := stringField(out, "model_guid")
+	revision, _ := uintField(out, "revision")
+	if guid != r.modelGuid || revision != r.revision {
+		return nil, fmt.Errorf("%s identity mismatch guid=%q revision=%d; want guid=%q revision=%d", toolName, guid, revision, r.modelGuid, r.revision)
+	}
+	if mustBool(out, "truncated") {
+		return nil, fmt.Errorf("%s output is truncated; repeated-run acceptance requires complete presentation state", toolName)
+	}
+	raw, err := sliceField(out, key)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]map[string]any, 0, len(raw))
+	for index, value := range raw {
+		item, ok := value.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s %s[%d] is not an object", toolName, key, index)
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func findReusablePresentationItem(items []map[string]any, wanted string) (map[string]any, error) {
+	var exact map[string]any
+	conflicts := []string{}
+	for _, item := range items {
+		name, _ := stringField(item, "name")
+		if name == wanted {
+			if exact != nil {
+				conflicts = append(conflicts, name)
+			} else {
+				exact = item
 			}
+			continue
+		}
+		if duplicatePresentationName(wanted, name) {
+			conflicts = append(conflicts, name)
+		}
+	}
+	if exact != nil && len(conflicts) == 0 {
+		return exact, nil
+	}
+	if exact == nil && len(conflicts) == 0 {
+		return nil, nil
+	}
+	if exact != nil {
+		conflicts = append([]string{wanted}, conflicts...)
+	}
+	return nil, fmt.Errorf("ambiguous presentation state for %q: %v", wanted, conflicts)
+}
+
+func duplicatePresentationName(base, candidate string) bool {
+	if !strings.HasPrefix(candidate, base) || candidate == base {
+		return false
+	}
+	suffix := strings.TrimSpace(strings.TrimPrefix(candidate, base))
+	if suffix == "" {
+		return false
+	}
+	if strings.HasPrefix(suffix, "(") && strings.HasSuffix(suffix, ")") {
+		suffix = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(suffix, "("), ")"))
+	}
+	value, err := strconv.Atoi(suffix)
+	return err == nil && value > 0
+}
+
+func (r *Runner) refreshSectionRefs(ctx context.Context) error {
+	items, err := r.listPresentationItems(ctx, "section_plane.list", "section_planes")
+	if err != nil {
+		return err
+	}
+	refs := map[string]map[string]any{}
+	for _, step := range r.fixture.Presentation {
+		if strings.ToLower(step.Kind) != "section" {
+			continue
+		}
+		match, err := findReusablePresentationItem(items, step.Section.Name)
+		if err != nil {
+			return fmt.Errorf("section %s: %w", step.Id, err)
+		}
+		if match == nil || !r.sectionMatches(match, step.Section) {
+			return fmt.Errorf("section %s %q missing or stale after presentation preparation", step.Id, step.Section.Name)
+		}
+		ref, err := mapField(match, "entity_ref")
+		if err != nil {
+			return fmt.Errorf("section %s missing entity_ref: %w", step.Id, err)
+		}
+		refs[step.Id] = ref
+	}
+	r.sectionRefs = refs
+	return nil
+}
+
+func (r *Runner) sectionMatches(item map[string]any, spec *SectionSpec) bool {
+	name, _ := stringField(item, "name")
+	symbol, _ := stringField(item, "symbol")
+	if name != spec.Name || symbol != spec.Symbol {
+		return false
+	}
+	normal := vec3Field(item, "normal")
+	expectedNormal, ok := normalizeVec3(spec.Normal)
+	if !ok || !vec3Close(normal, expectedNormal, 1e-6) {
+		return false
+	}
+	origin := vec3Field(item, "origin_mm")
+	actualOffset := dotVec3(normal, origin)
+	expectedOffset := dotVec3(expectedNormal, spec.PointMm)
+	tolerance := math.Max(0.01, r.fixture.ExpectedModel.ToleranceMm)
+	return math.Abs(actualOffset-expectedOffset) <= tolerance
+}
+
+func (r *Runner) sceneMatches(item map[string]any, spec *SceneSpec) bool {
+	camera, err := mapField(item, "camera")
+	if err != nil {
+		return false
+	}
+	perspective, _ := boolField(camera, "perspective")
+	if perspective != spec.Perspective {
+		return false
+	}
+	tolerance := math.Max(0.01, r.fixture.ExpectedModel.ToleranceMm)
+	if !vec3Close(vec3Field(camera, "eye_mm"), spec.EyeMm, tolerance) ||
+		!vec3Close(vec3Field(camera, "target_mm"), spec.TargetMm, tolerance) {
+		return false
+	}
+	expectedUp, ok := normalizeVec3(spec.Up)
+	if !ok || !vec3Close(vec3Field(camera, "up"), expectedUp, 1e-6) {
+		return false
+	}
+	if spec.Perspective {
+		if math.Abs(mustFloat(camera, "fov_degrees")-spec.FovDegrees) > 1e-6 {
+			return false
+		}
+	} else if math.Abs(mustFloat(camera, "orthographic_height_mm")-spec.OrthographicHeightMm) > tolerance {
+		return false
+	}
+	if mustBool(item, "display_section_planes") != spec.DisplaySectionPlane {
+		return false
+	}
+	if mustBool(item, "display_section_cuts") != (spec.SectionId != "") {
+		return false
+	}
+	value, hasRef := item["active_section_plane_ref"]
+	if spec.SectionId == "" {
+		return !hasRef || value == nil
+	}
+	ref, ok := value.(map[string]any)
+	if !ok {
+		return false
+	}
+	expected := r.sectionRefs[spec.SectionId]
+	if expected == nil {
+		return false
+	}
+	actualPID, errA := intField(ref, "persistent_id")
+	expectedPID, errB := intField(expected, "persistent_id")
+	return errA == nil && errB == nil && actualPID == expectedPID
+}
+
+func (r *Runner) verifyPresentationUnique(ctx context.Context) error {
+	sections, err := r.listPresentationItems(ctx, "section_plane.list", "section_planes")
+	if err != nil {
+		return err
+	}
+	scenes, err := r.listPresentationItems(ctx, "scene.list", "scenes")
+	if err != nil {
+		return err
+	}
+	for _, step := range r.fixture.Presentation {
+		var items []map[string]any
+		var name string
+		if strings.ToLower(step.Kind) == "section" {
+			items = sections
+			name = step.Section.Name
+		} else {
+			items = scenes
+			name = step.Scene.Name
+		}
+		match, err := findReusablePresentationItem(items, name)
+		if err != nil {
+			return err
+		}
+		if match == nil {
+			return fmt.Errorf("presentation role %q is missing after repeated preparation", name)
 		}
 	}
 	return nil
+}
+
+func normalizeVec3(value Vec3) (Vec3, bool) {
+	length := math.Sqrt((value.X * value.X) + (value.Y * value.Y) + (value.Z * value.Z))
+	if length == 0 || math.IsNaN(length) || math.IsInf(length, 0) {
+		return Vec3{}, false
+	}
+	return Vec3{X: value.X / length, Y: value.Y / length, Z: value.Z / length}, true
+}
+
+func vec3Close(a, b Vec3, tolerance float64) bool {
+	return math.Abs(a.X-b.X) <= tolerance && math.Abs(a.Y-b.Y) <= tolerance && math.Abs(a.Z-b.Z) <= tolerance
+}
+
+func dotVec3(a, b Vec3) float64 {
+	return (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z)
 }
 
 func (r *Runner) saveModelCopy(ctx context.Context) error {

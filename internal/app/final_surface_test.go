@@ -26,7 +26,9 @@ var expectedPublicToolNames = []string{
 	EntityNameSetToolName,
 	AssemblyCreateToolName,
 	BoxCreateToolName,
+	SectionPlaneListToolName,
 	SectionPlaneCreateToolName,
+	SceneListToolName,
 	SceneCreateToolName,
 	ModelSaveCopyToolName,
 	ModelUndoToolName,
@@ -107,6 +109,8 @@ func TestFinalDemoSurfaceIsExactAndDiscoverable(t *testing.T) {
 		SessionsListToolName:           true,
 		ModelSummaryToolName:           true,
 		ModelBoundsToolName:            true,
+		SectionPlaneListToolName:       true,
+		SceneListToolName:              true,
 		LayoutTemplateInspectToolName:  true,
 		LayoutPanelValidateToolName:    true,
 		SelectionGetToolName:           true,
@@ -156,6 +160,8 @@ func TestPublicToolGuidanceExposesLayoutInvariants(t *testing.T) {
 	}
 
 	descriptionHints := map[string][]string{
+		SceneListToolName:            {"reuse", "captured section state"},
+		SectionPlaneListToolName:     {"durable refs", "reuse"},
 		SceneCreateToolName:          {"reusable presentation state", "named scenes"},
 		LayoutTemplateInspectToolName: {"template-first", "viewport slots"},
 		LayoutViewportAddToolName:     {"scene_name", "scale_denominator", "require_fit=true"},
@@ -236,10 +242,10 @@ func TestDemoDocumentsExactPublicToolSurface(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Fatalf("docs public tool list = %v, want exactly %v", got, want)
 	}
-	if !strings.Contains(text, "| Local MCP tools | 25 |") {
-		t.Fatal("docs/demo.md must state the current 25-tool surface")
+	if !strings.Contains(text, "| Local MCP tools | 27 |") {
+		t.Fatal("docs/demo.md must state the current 27-tool surface")
 	}
-	for _, stale := range []string{"| Local MCP tools | 23 |", "exactly 23 MCP tools discovered"} {
+	for _, stale := range []string{"| Local MCP tools | 25 |", "| Local MCP tools | 23 |", "exactly 23 MCP tools discovered"} {
 		if strings.Contains(text, stale) {
 			t.Fatalf("docs/demo.md still contains stale tool-surface text %q", stale)
 		}

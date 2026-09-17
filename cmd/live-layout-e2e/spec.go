@@ -174,6 +174,8 @@ func (f Fixture) Validate() error {
 		return fmt.Errorf("required template slots, panels, and styles must be declared")
 	}
 	sectionIDs := map[string]bool{}
+	sceneNames := map[string]bool{}
+	sectionNames := map[string]bool{}
 	for i, step := range f.Presentation {
 		switch strings.ToLower(step.Kind) {
 		case "section":
@@ -183,11 +185,22 @@ func (f Fixture) Validate() error {
 			if sectionIDs[step.Id] {
 				return fmt.Errorf("duplicate section id %q", step.Id)
 			}
+			if sectionNames[step.Section.Name] {
+				return fmt.Errorf("duplicate section presentation name %q", step.Section.Name)
+			}
 			sectionIDs[step.Id] = true
+			sectionNames[step.Section.Name] = true
 		case "scene":
 			if step.Scene == nil || step.Section != nil {
 				return fmt.Errorf("presentation[%d] scene step is malformed", i)
 			}
+			if strings.TrimSpace(step.Scene.Name) == "" {
+				return fmt.Errorf("presentation[%d] scene name is required", i)
+			}
+			if sceneNames[step.Scene.Name] {
+				return fmt.Errorf("duplicate scene presentation name %q", step.Scene.Name)
+			}
+			sceneNames[step.Scene.Name] = true
 			if step.Scene.SectionId != "" && !sectionIDs[step.Scene.SectionId] {
 				return fmt.Errorf("presentation[%d] references section %q before it is created", i, step.Scene.SectionId)
 			}

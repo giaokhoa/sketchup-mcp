@@ -64,6 +64,10 @@ type Report struct {
 	PanelValidations        []PanelSummary    `json:"panel_validations"`
 	DimensionCount          int               `json:"dimension_count"`
 	ConnectedDimensionCount int               `json:"connected_dimension_count"`
+	PresentationFirstCreated int               `json:"presentation_first_created"`
+	PresentationFirstReused  int               `json:"presentation_first_reused"`
+	PresentationSecondCreated int              `json:"presentation_second_created"`
+	PresentationSecondReused  int              `json:"presentation_second_reused"`
 	PngBytes                int               `json:"png_bytes"`
 	Stages                  []StageResult     `json:"stages"`
 	Error                   string            `json:"error,omitempty"`
@@ -237,6 +241,7 @@ func main() {
 		{"model_bounds", func() error { return runner.readBounds(ctx) }},
 		{"template_inspect", func() error { return runner.inspectTemplate(ctx) }},
 		{"prepare_presentation", func() error { return runner.preparePresentation(ctx) }},
+		{"repeat_presentation", func() error { return runner.repeatPresentation(ctx) }},
 		{"model_save_copy", func() error { return runner.saveModelCopy(ctx) }},
 		{"layout_create", func() error { return runner.createLayout(ctx) }},
 		{"viewports", func() error { return runner.addViewports(ctx) }},

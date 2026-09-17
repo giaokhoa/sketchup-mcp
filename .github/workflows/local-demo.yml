@@ -38,6 +38,7 @@ jobs:
           ruby test/model_context_test.rb
           ruby test/server_integration_test.rb
           ruby test/mutation_engine_test.rb
+          ruby test/presentation_discovery_test.rb
 
   package:
     needs: test

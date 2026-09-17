@@ -28,6 +28,50 @@ func addPresentationTools(server *mcp.Server, service SessionService) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        SectionPlaneListToolName,
+		Description: "List bounded root-level SketchUp section planes with durable refs, model-space planes, and active state so clients can reuse presentation state.",
+		Annotations: readOnlyAnnotations(),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.PresentationListInput) (*mcp.CallToolResult, model.SectionPlaneListOutput, error) {
+		var output model.SectionPlaneListOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, SectionPlaneListToolName, map[string]any{}, &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.SectionPlaneListOutput{}, err
+		}
+		if output.SectionPlanes == nil {
+			output.SectionPlanes = []model.SectionPlaneInfo{}
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        SceneListToolName,
+		Description: "List bounded SketchUp scenes with camera and captured section state so clients can reuse named presentation state before creating duplicates.",
+		Annotations: readOnlyAnnotations(),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.PresentationListInput) (*mcp.CallToolResult, model.SceneListOutput, error) {
+		var output model.SceneListOutput
+		if err := input.Validate(); err != nil {
+			return toolFailure(&output.Error, invalidRequest(err)), output, nil
+		}
+		if err := service.Call(ctx, input.SessionID, SceneListToolName, map[string]any{}, &output); err != nil {
+			if domain := domainError(err); domain != nil {
+				output.Error = domain
+				return &mcp.CallToolResult{IsError: true}, output, nil
+			}
+			return nil, model.SceneListOutput{}, err
+		}
+		if output.Scenes == nil {
+			output.Scenes = []model.SceneInfo{}
+		}
+		return &mcp.CallToolResult{}, output, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        SectionPlaneCreateToolName,
 		Description: "Create one root-level SketchUp section plane from a millimeter point and a normal vector.",
 		Annotations: mutationAnnotations(false),

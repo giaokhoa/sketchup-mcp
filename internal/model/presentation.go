@@ -59,6 +59,68 @@ type ModelBoundsOutput struct {
 	Error     *ToolError `json:"error,omitempty"`
 }
 
+type PresentationListInput struct {
+	SessionID string `json:"session_id" jsonschema:"SketchUp MCP session identifier"`
+}
+
+func (i PresentationListInput) Validate() error {
+	if strings.TrimSpace(i.SessionID) == "" {
+		return errors.New("session_id is required")
+	}
+	return nil
+}
+
+type SectionPlaneInfo struct {
+	EntityRef EntityRef  `json:"entity_ref" jsonschema:"durable persistent reference for this SketchUp section plane"`
+	Name      string     `json:"name"`
+	Symbol    string     `json:"symbol"`
+	OriginMM  Point3MM   `json:"origin_mm" jsonschema:"a point on the section plane in model coordinates, millimeters"`
+	Normal    Direction3 `json:"normal" jsonschema:"unit section-plane normal in model coordinates"`
+	Active    bool       `json:"active"`
+}
+
+type SectionPlaneListOutput struct {
+	SessionID     string             `json:"session_id,omitempty"`
+	ModelGUID     string             `json:"model_guid,omitempty"`
+	Revision      uint64             `json:"revision"`
+	TotalCount    int                `json:"total_count"`
+	ReturnedCount int                `json:"returned_count"`
+	Truncated     bool               `json:"truncated"`
+	SectionPlanes []SectionPlaneInfo `json:"section_planes"`
+	Error         *ToolError         `json:"error,omitempty"`
+}
+
+type SceneCameraSummary struct {
+	EyeMM                Point3MM   `json:"eye_mm"`
+	TargetMM             Point3MM   `json:"target_mm"`
+	Up                   Direction3 `json:"up"`
+	Perspective          bool       `json:"perspective"`
+	OrthographicHeightMM float64    `json:"orthographic_height_mm"`
+	FOVDegrees           float64    `json:"fov_degrees"`
+}
+
+type SceneInfo struct {
+	Name                   string              `json:"name"`
+	Index                  int                 `json:"index" jsonschema:"zero-based page index used by the bridge"`
+	PersistentID           int64               `json:"persistent_id" jsonschema:"SketchUp Page persistent_id when available"`
+	Active                 bool                `json:"active"`
+	Camera                 SceneCameraSummary  `json:"camera"`
+	ActiveSectionPlaneRef  *EntityRef          `json:"active_section_plane_ref,omitempty" jsonschema:"captured active section plane for this scene when available"`
+	DisplaySectionCuts     bool                `json:"display_section_cuts"`
+	DisplaySectionPlanes   bool                `json:"display_section_planes"`
+}
+
+type SceneListOutput struct {
+	SessionID     string      `json:"session_id,omitempty"`
+	ModelGUID     string      `json:"model_guid,omitempty"`
+	Revision      uint64      `json:"revision"`
+	TotalCount    int         `json:"total_count"`
+	ReturnedCount int         `json:"returned_count"`
+	Truncated     bool        `json:"truncated"`
+	Scenes        []SceneInfo `json:"scenes"`
+	Error         *ToolError  `json:"error,omitempty"`
+}
+
 type SectionPlaneCreateInput struct {
 	MutationEnvelope
 	PointMM Point3MM   `json:"point_mm"`

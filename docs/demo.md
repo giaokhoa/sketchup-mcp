@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 25 |
+| Local MCP tools | 27 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -111,7 +111,9 @@ entity.material.set
 entity.name.set
 assembly.create
 geometry.create_box
+section_plane.list
 section_plane.create
+scene.list
 scene.create
 model.file.save_copy
 changes.undo
@@ -142,7 +144,8 @@ views require an explicit scale denominator.
 ```text
 sketchup.sessions.list
   -> model.summary / model.bounds
-  -> scene / section preparation
+  -> section_plane.list / scene.list
+  -> reuse matching presentation state; create only missing state
   -> model.file.save_copy
   -> layout.template.inspect
   -> layout.document.create(template_path)
@@ -195,7 +198,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly 25 MCP tools discovered;
+- current public contract exposes exactly 27 MCP tools;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
