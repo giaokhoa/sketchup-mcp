@@ -571,7 +571,7 @@ func (r *Runner) sceneMatches(item map[string]any, spec *SceneSpec) bool {
 		!vec3Close(vec3Field(camera, "target_mm"), spec.TargetMm, tolerance) {
 		return false
 	}
-	expectedUp, ok := normalizeVec3(spec.Up)
+	expectedUp, ok := canonicalCameraUp(spec.EyeMm, spec.TargetMm, spec.Up)
 	if !ok || !vec3Close(vec3Field(camera, "up"), expectedUp, 1e-6) {
 		return false
 	}
@@ -633,6 +633,24 @@ func (r *Runner) verifyPresentationUnique(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func canonicalCameraUp(eye, target, up Vec3) (Vec3, bool) {
+	direction, ok := normalizeVec3(Vec3{X: target.X - eye.X, Y: target.Y - eye.Y, Z: target.Z - eye.Z})
+	if !ok {
+		return Vec3{}, false
+	}
+	normalizedUp, ok := normalizeVec3(up)
+	if !ok {
+		return Vec3{}, false
+	}
+	dot := dotVec3(normalizedUp, direction)
+	projected := Vec3{
+		X: normalizedUp.X - (direction.X * dot),
+		Y: normalizedUp.Y - (direction.Y * dot),
+		Z: normalizedUp.Z - (direction.Z * dot),
+	}
+	return normalizeVec3(projected)
 }
 
 func normalizeVec3(value Vec3) (Vec3, bool) {
