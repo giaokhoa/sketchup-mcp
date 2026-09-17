@@ -10,7 +10,7 @@ import (
 func addLayoutValidationTools(server *mcp.Server, service SessionService) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        LayoutPanelValidateToolName,
-		Description: "Validate that all runtime LayOut entities associated with a template panel remain inside that panel's drawing bounds.",
+		Description: "Validate that runtime entities with a panel_id stay inside that template panel's paper-space bounds; run for every populated panel before accepted export.",
 		Annotations: readOnlyAnnotations(),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutPanelValidateInput) (*mcp.CallToolResult, model.LayoutPanelValidateOutput, error) {
 		var output model.LayoutPanelValidateOutput

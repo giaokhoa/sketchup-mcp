@@ -10,7 +10,7 @@ import (
 func addLayoutTemplateTools(server *mcp.Server, service SessionService) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        LayoutTemplateInspectToolName,
-		Description: "Inspect a machine-readable LayOut template: page sizes, layers, tagged viewport slots, tagged style samples, and Auto-Text capabilities.",
+		Description: "Inspect a LayOut template before template-first document creation: page sizes, layers, tagged panels, viewport slots, style samples, and Auto-Text capabilities.",
 		Annotations: readOnlyAnnotations(),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input model.LayoutTemplateInspectInput) (*mcp.CallToolResult, model.LayoutTemplateInspectOutput, error) {
 		var output model.LayoutTemplateInspectOutput

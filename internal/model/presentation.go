@@ -117,14 +117,14 @@ type SectionPlaneCreateOutput struct {
 
 type SceneCreateInput struct {
 	MutationEnvelope
-	Name                 string     `json:"name"`
+	Name                 string     `json:"name" jsonschema:"stable SketchUp scene name for reusable presentation state and LayOut scene_name viewports"`
 	EyeMM                Point3MM   `json:"eye_mm"`
 	TargetMM             Point3MM   `json:"target_mm"`
 	Up                   Direction3 `json:"up"`
 	Perspective          bool       `json:"perspective"`
 	OrthographicHeightMM float64    `json:"orthographic_height_mm" jsonschema:"required for orthographic scenes; zero for perspective"`
 	FOVDegrees           float64    `json:"fov_degrees" jsonschema:"1 through 120 for perspective scenes; zero for orthographic"`
-	SectionPlaneRef      *EntityRef `json:"section_plane_ref,omitempty"`
+	SectionPlaneRef      *EntityRef `json:"section_plane_ref,omitempty" jsonschema:"optional section plane captured into this scene presentation state"`
 	DisplaySectionPlane  bool       `json:"display_section_plane"`
 }
 

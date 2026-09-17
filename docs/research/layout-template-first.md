@@ -1,5 +1,7 @@
 # LayOut template-first contract
 
+Verified: **2026-09-17** against the live A2 reference template and SketchUp/LayOut 2026 APIs.
+
 This note defines the machine-readable contract used by the LayOut MCP template workflow.
 
 ## API facts
@@ -10,6 +12,7 @@ This note defines the machine-readable contract used by the LayOut MCP template 
 - `Layout::Entity`, `Layout::Page`, and `Layout::Document` support attribute dictionaries in LayOut 2026.
 - `Layout::Style` can be read from one entity and assigned to another.
 - `Layout::AutoTextDefinition` includes model scene name, scale, section name, and section symbol definitions.
+- SketchUp `Page` objects are Scenes in the UI and preserve camera plus section-plane state.
 - `Layout::SketchUpModel` can select a SketchUp scene, use orthographic scale, and preserve scale on resize.
 
 Official references:
@@ -19,6 +22,7 @@ Official references:
 - https://ruby.sketchup.com/Layout/Style.html
 - https://ruby.sketchup.com/Layout/AutoTextDefinition.html
 - https://ruby.sketchup.com/Layout/SketchUpModel.html
+- https://ruby.sketchup.com/Sketchup/Page.html
 - https://help.sketchup.com/en/layout/creating-template-layout
 - https://help.sketchup.com/en/layout/automate-titleblocks
 
@@ -122,21 +126,21 @@ LayOut's numeric paper coordinates are converted at the Ruby API boundary only.
 
 ## Expected `layout.template.inspect` shape
 
+The example below is a rounded excerpt from the live A2 reference template.
+LayOut's inch-to-millimeter conversion can produce tiny floating-point noise
+(e.g. 593.99998 instead of the design value 594), so documentation shows the
+design millimeter values.
+
 ```json
 {
-  "template_id": "furniture-shopdrawing-a3-v1",
+  "template_id": "furniture-shopdrawing-a2-v1",
   "template_kind": "furniture_shopdrawing",
   "schema_version": 1,
   "pages": [
-    {
-      "index": 0,
-      "name": "Sheet 1",
-      "width_mm": 420,
-      "height_mm": 297
-    }
+    {"index": 0, "name": "Sheet 1", "width_mm": 594, "height_mm": 420}
   ],
   "layers": [
-    {"name": "00 Shared Frame", "shared": true, "locked": true},
+    {"name": "00 Shared Frame", "shared": true, "locked": false},
     {"name": "10 Viewports", "shared": false, "locked": false}
   ],
   "panels": [
@@ -146,7 +150,7 @@ LayOut's numeric paper coordinates are converted at the Ruby API boundary only.
     {
       "slot_id": "front",
       "page_index": 0,
-      "bounds_mm": {"x": 142, "y": 8, "width": 154, "height": 132},
+      "bounds_mm": {"x": 205, "y": 12, "width": 207, "height": 158},
       "default_scale_denominator": 10,
       "perspective": false
     }
@@ -156,10 +160,14 @@ LayOut's numeric paper coordinates are converted at the Ruby API boundary only.
     {"style_id": "caption", "page_index": 0}
   ],
   "auto_text_types": [
-    "model_scene_name",
+    "file",
     "model_scale",
+    "model_scene_name",
     "model_section_name",
-    "model_section_symbol"
+    "model_section_symbol",
+    "page_count",
+    "page_name",
+    "page_number"
   ]
 }
 ```

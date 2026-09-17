@@ -1,6 +1,6 @@
 # SketchUp MCP local demo
 
-Verified: **2026-09-16**
+Verified: **2026-09-17**
 
 This guide covers the packaged local Windows demo only:
 
@@ -21,7 +21,7 @@ Remote MCP and ChatGPT transport are intentionally outside this local baseline.
 | SketchUp | SketchUp 2026 / 26.0.429 |
 | Go | 1.25.0 |
 | MCP Go SDK | github.com/modelcontextprotocol/go-sdk v1.8.0 |
-| Local MCP tools | 23 |
+| Local MCP tools | 25 |
 | SketchUp responsiveness | PASS |
 | Real MCP stdio -> SketchUp | PASS |
 
@@ -97,36 +97,96 @@ diagnostics stay on stderr.
 
 The expected tool list is exactly:
 
+<!-- PUBLIC_TOOL_LIST_START -->
 ```text
 sketchup.sessions.list
 model.summary
 model.bounds
 selection.get
 entity.inspect
+entity.children.list
 entity.translate
 entity.delete
 entity.material.set
 entity.name.set
-entity.children.list
 assembly.create
 geometry.create_box
 section_plane.create
 scene.create
 model.file.save_copy
+changes.undo
 layout.document.create
+layout.template.inspect
+layout.panel.validate
 layout.viewport.add
 layout.dimension.add
 layout.text.add
 layout.line.add
 layout.rectangle.add
 layout.export
-changes.undo
 ```
+<!-- PUBLIC_TOOL_LIST_END -->
 
 Use `sketchup.sessions.list` first. Before a write, read the current model
 GUID/revision, use durable entity references, and give each intended mutation a
 fresh `operation_id`. If a write returns `STALE_REVISION`, refresh state and
 retry the intended write with a new operation ID.
+
+## Canonical SketchUp -> LayOut documentation workflow
+
+Use SketchUp scenes as the presentation source for camera and section state. A
+LayOut viewport should reference a named documentation scene when one exists
+instead of independently inventing camera state. Orthographic documentation
+views require an explicit scale denominator.
+
+```text
+sketchup.sessions.list
+  -> model.summary / model.bounds
+  -> scene / section preparation
+  -> model.file.save_copy
+  -> layout.template.inspect
+  -> layout.document.create(template_path)
+  -> layout.viewport.add(require_fit=true)
+  -> layout.dimension.add
+  -> layout.text / layout.line / layout.rectangle as needed
+  -> layout.panel.validate for every populated panel
+  -> layout.export
+```
+
+Paper-space coordinates are millimeters. `fit_model_bounds_mm` is SketchUp
+model-space bounds in millimeters, not paper-space bounds. Runtime viewports,
+dimensions, and annotations should carry the template `panel_id` so
+`layout.panel.validate` can reject containment violations before accepted
+export. Associative dimensions report `connected`; accepted dimensions should
+return `connected=true`.
+
+For official drawing generation, normally keep `require_fit=true` and fix scale,
+slot, or model-bound inputs when the fit check fails rather than disabling the
+gate.
+
+### One-command live acceptance
+
+Issue #38 checked in the generic live harness. From a fresh checkout, with the
+matching CI EXE/RBZ installed and the target SketchUp model already open:
+
+```powershell
+.\scripts\run_live_layout_e2e.ps1 `
+  -McpExe C:\acceptance\sketchup-mcp-windows-amd64.exe `
+  -Rbz C:\acceptance\giaokhoa_sketchup_mcp.rbz `
+  -Pid <SketchUp-PID> `
+  -SourceModel C:\fixtures\cabinet-layout-source.skp `
+  -Template C:\fixtures\furniture-shopdrawing-a2.layout `
+  -OutputDir C:\acceptance\cabinet-live `
+  -Fixture .\testdata\e2e\cabinet\spec.json `
+  -WorkflowRunId <run-id> `
+  -ArtifactId <artifact-id>
+```
+
+See `docs/testing/live-layout-e2e.md` for preconditions and report fields. The
+final #38 acceptance used CI run `35174845489`, artifact `10477553790`, SketchUp
+26.0.429, and passed 52/52 connected dimensions, 6/6 populated panels with zero
+containment violations, native PNG `ImageContent` (166,756 bytes), PDF export,
+and the SketchUp responsiveness gate.
 
 ## Proven local end-to-end scenarios
 
@@ -135,7 +195,7 @@ Go MCP stdio server.
 
 ### Read/discovery
 
-- exactly 23 MCP tools discovered;
+- exactly 25 MCP tools discovered;
 - live SketchUp session listed;
 - model summary and selection returned bounded structured output;
 - durable group/component references inspected successfully.
@@ -316,37 +376,22 @@ origins within floating-point tolerance. SketchUp chose a non-zero transform for
 the root assembly, but compensated the child transforms so the physical model
 did not move.
 
-## LayOut primitive smoke - issue #27
+## LayOut template-first acceptance - issues #27, #28, and #38
 
-The packaged MCP exposes LayOut and SketchUp presentation operations as
-independent tools. There is no public tool that decides an A3 drawing workflow.
-
-A live client composed these primitives:
-
-```text
-model.bounds
-section_plane.create
-scene.create
-model.file.save_copy
-layout.document.create
-layout.viewport.add
-layout.dimension.add
-layout.text.add
-layout.rectangle.add
-layout.export
-```
+The packaged MCP exposes SketchUp presentation and LayOut operations as
+independent primitives. There is no public tool that decides a cabinet or sheet
+workflow. The final live flow uses an A2 landscape reference template and
+composes the primitives in the canonical order documented above.
 
 The public coordinate contract is millimeters. Conversion to SketchUp/LayOut
-internal inches happens only at the Ruby API boundary.
+internal inches happens only at the Ruby API boundary. Template inspection
+provides reusable panel, viewport-slot, layer, style, and Auto-Text metadata;
+`panel_id` is then carried by runtime entities so containment can be validated
+before export.
 
-Live packaged-artifact acceptance on SketchUp 2026 created an A3 landscape
-document with six independently requested viewports (plan, front, side, two
-sections, and isometric), connected dimensions, labels, PNG, and PDF. The test
-fixture was the 1800 mm cabinet, but no cabinet dimensions, view count, page
-size, labels, or viewport positions are encoded in the MCP primitive
-implementation.
-
-The PNG export is returned as native MCP `ImageContent`.
+The cabinet remains fixture data only. The generic #38 runner also passes a
+second minimal fixture with one viewport and one connected dimension without
+source-code changes.
 
 ## Known local-demo limitations
 
